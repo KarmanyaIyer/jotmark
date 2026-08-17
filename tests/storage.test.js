@@ -61,7 +61,7 @@ test('export and import merge and replace', async () => {
 
   // Merge into a store that already has one of the notes: it is skipped.
   const other = createStore(createMemoryArea());
-  await other.importData({ notes: [dump.notes[0]] });
+  await other.importData({ app: 'jotmark', notes: [dump.notes[0]] });
   const result = await other.importData(dump, 'merge');
   assert.equal(result.added, 1);
   assert.equal(result.skipped, 1);
@@ -75,9 +75,62 @@ test('export and import merge and replace', async () => {
 
   // Bad payloads are rejected, bad rows are skipped.
   await assert.rejects(other.importData({ nope: true }));
-  const bad = await other.importData({ notes: [{ scope: 'zzz', key: 'a', text: 'x' }, { scope: 'domain', key: '', text: 'x' }, { scope: 'domain', key: 'c.com', text: '   ' }] });
+  await assert.rejects(other.importData({ notes: [] }), /Jotmark export/);
+  const bad = await other.importData({ app: 'jotmark', notes: [{ scope: 'zzz', key: 'a', text: 'x' }, { scope: 'domain', key: '', text: 'x' }, { scope: 'domain', key: 'c.com', text: '   ' }] });
   assert.equal(bad.added, 0);
   assert.equal(bad.skipped, 3);
+});
+
+test('merge import takes the newer copy of an edited note', async () => {
+  const store = createStore(createMemoryArea());
+  const note = await store.addNote('domain', 'a.com', 'original');
+  const newer = { scope: 'domain', key: 'a.com', ...note, text: 'edited elsewhere', updatedAt: note.updatedAt + 5000 };
+  const older = { scope: 'domain', key: 'a.com', ...note, text: 'stale', updatedAt: note.updatedAt - 5000 };
+  const result = await store.importData({ app: 'jotmark', notes: [newer, older] }, 'merge');
+  assert.equal(result.updated, 1);
+  assert.equal(result.skipped, 1);
+  assert.equal((await store.getNotes('domain', 'a.com'))[0].text, 'edited elsewhere');
+});
+
+test('replace import never wipes notes for a file with nothing usable', async () => {
+  const store = createStore(createMemoryArea());
+  await store.addNote('domain', 'a.com', 'keep me');
+  await assert.rejects(store.importData({ app: 'jotmark', notes: ['junk', { foo: 1 }] }, 'replace'), /no notes/);
+  await assert.rejects(store.importData({ notes: [{ scope: 'domain', key: 'b.com', text: 'x' }] }, 'replace'));
+  assert.equal(await store.countAll(), 1);
+});
+
+test('replace import leaves nothing behind when storage fails', async () => {
+  const area = createMemoryArea();
+  const store = createStore(area);
+  await store.addNote('domain', 'a.com', 'keep me');
+  area.set = async () => { throw new Error('quota'); };
+  await assert.rejects(store.importData({ app: 'jotmark', notes: [{ scope: 'domain', key: 'b.com', text: 'x' }] }, 'replace'), (e) => e.code === 'write');
+  assert.equal(await store.countAll(), 1);
+});
+
+test('out of range timestamps are rejected or repaired', async () => {
+  const area = createMemoryArea({ 'd:a.com': [{ id: 'x', text: 'bad', createdAt: 1e20, updatedAt: 1e20 }] });
+  const store = createStore(area);
+  assert.deepEqual(await store.getNotes('domain', 'a.com'), []);
+  const before = Date.now();
+  const result = await store.importData({ app: 'jotmark', notes: [{ scope: 'domain', key: 'b.com', text: 'ok', createdAt: 1e20, updatedAt: -5 }] });
+  assert.equal(result.added, 1);
+  const [note] = await store.getNotes('domain', 'b.com');
+  assert.ok(note.createdAt >= before && note.createdAt <= 8.64e15);
+  assert.equal(note.updatedAt, note.createdAt);
+});
+
+test('restoreNote puts a deleted note back in place once', async () => {
+  const store = createStore(createMemoryArea());
+  const a = await store.addNote('domain', 'a.com', 'first');
+  await new Promise((resolve) => setTimeout(resolve, 3));
+  const b = await store.addNote('domain', 'a.com', 'second');
+  await store.deleteNote('domain', 'a.com', a.id);
+  const list = await store.restoreNote('domain', 'a.com', a);
+  assert.deepEqual(list.map((n) => n.id), [a.id, b.id]);
+  const again = await store.restoreNote('domain', 'a.com', a);
+  assert.equal(again.length, 2);
 });
 
 test('clearNotes leaves settings alone', async () => {

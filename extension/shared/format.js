@@ -41,7 +41,7 @@ export function formatRelative(timestamp, now = Date.now(), clock = '12h') {
   if (sameDay(date, yesterday)) return `yesterday, ${timeString(date, clock)}`;
   if (diff < 7 * DAY) {
     const d = Math.floor(diff / DAY);
-    return `${d} days ago`;
+    return d <= 1 ? 'yesterday' : `${d} days ago`;
   }
   return dateString(date, nowDate);
 }

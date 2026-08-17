@@ -11,6 +11,9 @@ test('formatRelative buckets', () => {
   assert.match(formatRelative(now - 13 * 60 * 60 * 1000, now), /^today, /);
   assert.match(formatRelative(now - 26 * 60 * 60 * 1000, now), /^yesterday, /);
   assert.equal(formatRelative(now - 3 * 24 * 60 * 60 * 1000, now), '3 days ago');
+  // 26 hours before 01:00 is two calendar days back but still one day old: never "1 days ago".
+  const oneAm = new Date(2026, 7, 17, 1, 0, 0).getTime();
+  assert.equal(formatRelative(oneAm - 26 * 60 * 60 * 1000, oneAm), 'yesterday');
   assert.match(formatRelative(now - 40 * 24 * 60 * 60 * 1000, now), /Jul/);
   assert.match(formatRelative(new Date(2024, 0, 5).getTime(), now), /2024/);
 });

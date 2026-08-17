@@ -45,25 +45,44 @@ function cleanText(text) {
   return value.length > MAX_NOTE_LENGTH ? value.slice(0, MAX_NOTE_LENGTH) : value;
 }
 
+// Largest value Date can represent. Anything outside this range would throw
+// in toISOString and Intl formatting, so such notes are treated as invalid.
+const MAX_TIMESTAMP = 8.64e15;
+
+function isValidTimestamp(value) {
+  return Number.isFinite(value) && value > 0 && value <= MAX_TIMESTAMP;
+}
+
 function isValidNote(note) {
   return (
     note &&
     typeof note === 'object' &&
     typeof note.id === 'string' &&
     typeof note.text === 'string' &&
-    Number.isFinite(note.createdAt) &&
-    Number.isFinite(note.updatedAt)
+    isValidTimestamp(note.createdAt) &&
+    isValidTimestamp(note.updatedAt)
   );
+}
+
+export class ImportError extends Error {
+  constructor(message, code) {
+    super(message);
+    this.name = 'ImportError';
+    this.code = code; // "invalid" (bad file) or "write" (storage failed)
+  }
 }
 
 export function createStore(area = globalThis.chrome?.storage?.local) {
   if (!area) throw new Error('No storage area available');
 
+  function cleanList(value) {
+    return Array.isArray(value) ? value.filter(isValidNote) : [];
+  }
+
   async function readList(scope, key) {
     const sk = storageKey(scope, key);
     const result = await area.get(sk);
-    const list = result[sk];
-    return Array.isArray(list) ? list.filter(isValidNote) : [];
+    return cleanList(result[sk]);
   }
 
   async function writeList(scope, key, list) {
@@ -85,10 +104,7 @@ export function createStore(area = globalThis.chrome?.storage?.local) {
       const dk = storageKey('domain', domainKey);
       const pk = storageKey('page', pageKey);
       const result = await area.get([dk, pk]);
-      return {
-        domain: Array.isArray(result[dk]) ? result[dk].filter(isValidNote) : [],
-        page: Array.isArray(result[pk]) ? result[pk].filter(isValidNote) : [],
-      };
+      return { domain: cleanList(result[dk]), page: cleanList(result[pk]) };
     },
 
     async addNote(scope, key, text) {
@@ -163,13 +179,15 @@ export function createStore(area = globalThis.chrome?.storage?.local) {
       return { app: 'jotmark', schema: EXPORT_SCHEMA, exportedAt: Date.now(), notes };
     },
 
-    // mode "merge" keeps existing notes and adds unknown ones.
-    // mode "replace" wipes all notes first.
+    // mode "merge" keeps existing notes, adds unknown ones, and takes the
+    // imported copy of a note when it was updated more recently.
+    // mode "replace" removes every note that is not in the file.
+    // Nothing is written until the whole file has been validated, so a bad
+    // file cannot destroy existing notes.
     async importData(payload, mode = 'merge') {
-      if (!payload || typeof payload !== 'object' || !Array.isArray(payload.notes)) {
-        throw new Error('Not a Jotmark export file');
+      if (!payload || typeof payload !== 'object' || payload.app !== 'jotmark' || !Array.isArray(payload.notes)) {
+        throw new ImportError('Not a Jotmark export file', 'invalid');
       }
-      if (mode === 'replace') await this.clearNotes();
 
       const byKey = new Map();
       let skipped = 0;
@@ -183,39 +201,55 @@ export function createStore(area = globalThis.chrome?.storage?.local) {
           skipped += 1;
           continue;
         }
-        const createdAt = Number.isFinite(raw.createdAt) ? raw.createdAt : Date.now();
+        const createdAt = isValidTimestamp(raw.createdAt) ? raw.createdAt : Date.now();
         const note = {
           id: typeof raw.id === 'string' && raw.id ? raw.id : newId(),
           text,
           createdAt,
-          updatedAt: Number.isFinite(raw.updatedAt) ? raw.updatedAt : createdAt,
+          updatedAt: isValidTimestamp(raw.updatedAt) ? raw.updatedAt : createdAt,
         };
         const sk = storageKey(raw.scope, raw.key);
         if (!byKey.has(sk)) byKey.set(sk, []);
         byKey.get(sk).push(note);
       }
 
-      const existing = await area.get([...byKey.keys()]);
+      if (mode === 'replace' && byKey.size === 0) {
+        throw new ImportError('The file contains no notes, so nothing was replaced', 'invalid');
+      }
+
+      const existing = mode === 'replace' ? {} : await area.get([...byKey.keys()]);
       const writes = {};
       let added = 0;
+      let updated = 0;
       for (const [sk, incoming] of byKey) {
-        const current = Array.isArray(existing[sk]) ? existing[sk].filter(isValidNote) : [];
-        const seen = new Set(current.map((n) => n.id));
-        const merged = [...current];
+        const current = cleanList(existing[sk]);
+        const merged = new Map(current.map((n) => [n.id, n]));
         for (const note of incoming) {
-          if (seen.has(note.id)) {
+          const known = merged.get(note.id);
+          if (!known) {
+            merged.set(note.id, note);
+            added += 1;
+          } else if (note.updatedAt > known.updatedAt) {
+            merged.set(note.id, note);
+            updated += 1;
+          } else {
             skipped += 1;
-            continue;
           }
-          seen.add(note.id);
-          merged.push(note);
-          added += 1;
         }
-        merged.sort((a, b) => a.createdAt - b.createdAt);
-        writes[sk] = merged;
+        writes[sk] = [...merged.values()].sort((a, b) => a.createdAt - b.createdAt);
       }
-      if (Object.keys(writes).length) await area.set(writes);
-      return { added, skipped };
+
+      try {
+        if (Object.keys(writes).length) await area.set(writes);
+        if (mode === 'replace') {
+          const everything = await area.get(null);
+          const stale = Object.keys(everything).filter((k) => parseStorageKey(k) && !(k in writes));
+          if (stale.length) await area.remove(stale);
+        }
+      } catch (error) {
+        throw new ImportError(`Could not write to storage: ${error.message}`, 'write');
+      }
+      return { added, updated, skipped };
     },
 
     async clearNotes() {
@@ -256,7 +290,7 @@ export function createStore(area = globalThis.chrome?.storage?.local) {
 }
 
 // In-memory storage area with the same shape as chrome.storage.local.
-// Used by unit tests and by the options page preview.
+// Used by the unit tests.
 export function createMemoryArea(initial = {}) {
   const data = structuredClone(initial);
   return {

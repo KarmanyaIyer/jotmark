@@ -1,13 +1,17 @@
-import { createStore, MAX_NOTE_LENGTH } from '../shared/storage.js';
+import { createStore, ImportError } from '../shared/storage.js';
 import { loadSettings, saveSettings, resetSettings, applyAppearance, onSettingsChange, DEFAULT_SETTINGS } from '../shared/settings.js';
 import { formatBytes, formatRelative, formatAbsolute, pluralize } from '../shared/format.js';
 import { labelForKey } from '../shared/url.js';
 import { h, clear } from '../shared/dom.js';
-import { noteTextNodes, timeElement, editedBadge, sortNotes, createToast } from '../shared/note-view.js';
+import {
+  noteTextNodes, timeElement, editedBadge, sortNotes, actionButtons, confirmButtons,
+  submitKeyMatcher, editorElement, createToast,
+} from '../shared/note-view.js';
 
 const store = createStore();
 const isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
 const VIEWS = ['notes', 'settings', 'about'];
+const EDITOR_MAX_PX = 320;
 
 const els = {
   version: document.getElementById('version'),
@@ -20,8 +24,8 @@ const els = {
   storageSummary: document.getElementById('storage-summary'),
   importFile: document.getElementById('import-file'),
   importMode: document.getElementById('import-mode'),
+  importControls: document.getElementById('import-controls'),
   deleteAllControls: document.getElementById('delete-all-controls'),
-  deleteAllDesc: document.getElementById('delete-all-desc'),
   toast: document.getElementById('toast'),
 };
 
@@ -29,12 +33,17 @@ const toast = createToast(els.toast);
 
 const state = {
   settings: { ...DEFAULT_SETTINGS },
+  isSubmitKey: () => false,
   groups: [],
   query: '',
-  editing: null,     // { scope, key, id }
-  confirming: null,  // { scope, key, id }
+  editing: null,      // { scope, key, id }
+  editingDraft: '',
+  confirming: null,   // { scope, key, id }
+  busy: false,
   view: 'notes',
 };
+
+let lastDeleted = null;
 
 init().catch((error) => {
   console.error('Jotmark settings failed to start', error);
@@ -47,29 +56,38 @@ async function init() {
   els.aboutVersion.textContent = manifest.version;
 
   state.settings = await loadSettings();
+  state.isSubmitKey = submitKeyMatcher(state.settings);
   applyAppearance(state.settings);
   bindSettingsControls();
   fillSettingsControls();
   updatePreview();
+  wireNotesView();
+  wireDataActions();
+
+  // Route and reveal the page before loading notes, so a problem with one
+  // stored note can never leave the whole page blank.
+  window.addEventListener('hashchange', route);
+  await applyRequestedView();
+  route();
+  document.documentElement.dataset.ready = 'true';
+  if (state.view === 'notes') els.search.focus({ preventScroll: true });
 
   await refreshNotes();
   await refreshStorageSummary();
 
-  wireNotesView();
-  wireDataActions();
-
-  window.addEventListener('hashchange', route);
-  route();
-  document.documentElement.dataset.ready = 'true';
-
   onSettingsChange((next) => {
     state.settings = next;
+    state.isSubmitKey = submitKeyMatcher(next);
     applyAppearance(next);
     fillSettingsControls();
     updatePreview();
     renderGroups();
   });
   chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'session' && changes.openView && changes.openView.newValue) {
+      applyRequestedView();
+      return;
+    }
     if (area !== 'local') return;
     const touchedNotes = Object.keys(changes).some((k) => k.startsWith('d:') || k.startsWith('p:'));
     if (touchedNotes) {
@@ -80,6 +98,25 @@ async function init() {
 }
 
 // Routing
+
+// The popup asks for a view through session storage (runtime.openOptionsPage
+// cannot pass a hash). Consume the request and jump there.
+async function applyRequestedView() {
+  if (!chrome.storage.session) return;
+  try {
+    const { openView } = await chrome.storage.session.get('openView');
+    if (!openView) return;
+    await chrome.storage.session.remove('openView');
+    if (VIEWS.includes(openView)) {
+      // replaceState rather than assigning location.hash: a hash assignment made
+      // while the page is still loading can be discarded by the initial navigation.
+      history.replaceState(null, '', `#${openView}`);
+      route();
+    }
+  } catch (error) {
+    console.warn('Could not read the requested view', error);
+  }
+}
 
 function route() {
   const hash = location.hash.replace('#', '');
@@ -98,7 +135,7 @@ function route() {
     const target = document.getElementById(hash);
     if (target) target.scrollIntoView({ block: 'start' });
   }
-  if (view === 'notes') els.search.focus({ preventScroll: true });
+  if (view === 'notes' && document.documentElement.dataset.ready) els.search.focus({ preventScroll: true });
 }
 
 // Settings controls
@@ -117,7 +154,8 @@ function bindSettingsControls() {
         if (!control.checked) return;
         value = control.value;
       } else value = control.value;
-      state.settings = await saveSettings({ [key]: value });
+      state.settings = await saveSettings({ [key]: value }, undefined, state.settings);
+      state.isSubmitKey = submitKeyMatcher(state.settings);
       applyAppearance(state.settings);
       updatePreview();
       renderGroups();
@@ -142,7 +180,7 @@ function updatePreview() {
   const t1 = document.getElementById('preview-time');
   const t2 = document.getElementById('preview-time-2');
   const a = now - 2 * 60 * 60 * 1000;
-  const b = now - 26 * 60 * 60 * 1000;
+  const b = now - 30 * 60 * 60 * 1000;
   const { timeFormat, clock } = state.settings;
   t1.textContent = timeFormat === 'absolute' ? formatAbsolute(a, clock) : formatRelative(a, now, clock);
   t2.textContent = timeFormat === 'absolute' ? formatAbsolute(b, clock) : formatRelative(b, now, clock);
@@ -151,8 +189,13 @@ function updatePreview() {
 // All notes view
 
 async function refreshNotes() {
-  const groups = await store.getAllGroups();
-  state.groups = groupBySite(groups);
+  try {
+    const groups = await store.getAllGroups();
+    state.groups = groupBySite(groups);
+  } catch (error) {
+    console.error('Could not read notes', error);
+    state.groups = [];
+  }
   renderGroups();
 }
 
@@ -238,64 +281,46 @@ function renderEntry(entry, query, now) {
   const { scope, key, note } = entry;
   const li = h('li', { class: 'note', dataset: { scope, key, id: note.id } });
 
-  const where = h('div', { class: 'note-where' }, h('span', { class: 'scope-tag' }, scope));
+  // Domain notes are the common case and need no label; page notes show
+  // which page they belong to.
   if (scope === 'page') {
-    where.append(h('a', { class: 'path', href: key, target: '_blank', rel: 'noopener noreferrer', title: key }, ...noteTextNodes(labelForKey(scope, key), { linkify: false }, query)));
+    li.append(h('div', { class: 'note-where' },
+      h('span', { class: 'scope-tag' }, 'page'),
+      h('a', { class: 'path', href: key, target: '_blank', rel: 'noopener noreferrer', title: key }, ...noteTextNodes(labelForKey(scope, key), { linkify: false }, query)),
+    ));
   }
-  li.append(where);
 
   if (isSame(state.editing, entry)) {
     li.classList.add('is-busy');
-    li.append(renderEditor(entry));
+    li.append(editorElement({
+      value: state.editingDraft,
+      onInput: (value) => { state.editingDraft = value; },
+      onSave: (value) => saveEdit(entry, value),
+      onCancel: () => cancelBusy(entry),
+      isSubmitKey: state.isSubmitKey,
+      maxPx: EDITOR_MAX_PX,
+    }));
     return li;
   }
 
   const text = h('div', { class: 'note-text' }, ...noteTextNodes(note.text, state.settings, query));
   const meta = h('div', { class: 'note-meta' }, timeElement(note, state.settings, now), editedBadge(note, state.settings));
-
   if (isSame(state.confirming, entry)) {
     li.classList.add('is-busy');
-    meta.append(h('span', { class: 'note-confirm' },
-      'Delete this note?',
-      h('button', { type: 'button', class: 'btn btn-danger btn-sm', 'data-action': 'confirm-delete' }, 'Delete'),
-      h('button', { type: 'button', class: 'btn btn-sm', 'data-action': 'cancel' }, 'Cancel'),
-    ));
+    meta.append(confirmButtons());
   } else {
-    meta.append(h('span', { class: 'note-actions' },
-      h('button', { type: 'button', class: 'link-btn', 'data-action': 'copy' }, 'Copy'),
-      h('button', { type: 'button', class: 'link-btn', 'data-action': 'edit' }, 'Edit'),
-      h('button', { type: 'button', class: 'link-btn is-danger', 'data-action': 'delete' }, 'Delete'),
-    ));
+    meta.append(actionButtons());
   }
   li.append(text, meta);
   return li;
 }
 
-function renderEditor(entry) {
-  const textarea = h('textarea', { class: 'field', rows: '3', maxlength: String(MAX_NOTE_LENGTH), 'aria-label': 'Edit note' });
-  textarea.value = entry.note.text;
-  const save = h('button', { type: 'button', class: 'btn btn-primary btn-sm', 'data-action': 'save' }, 'Save');
-  const cancel = h('button', { type: 'button', class: 'btn btn-sm', 'data-action': 'cancel' }, 'Cancel');
-  textarea.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      cancelBusy();
-    } else if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
-      event.preventDefault();
-      saveEdit(entry, textarea.value);
-    }
-  });
-  textarea.addEventListener('input', () => autogrow(textarea));
-  queueMicrotask(() => {
-    autogrow(textarea);
-    textarea.focus();
-    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
-  });
-  return h('div', { class: 'note-editor' }, textarea, h('div', { class: 'note-editor-row' }, cancel, save));
-}
-
 function isSame(a, entry) {
   return Boolean(a) && a.scope === entry.scope && a.key === entry.key && a.id === entry.note.id;
+}
+
+function refOf(entry) {
+  return { scope: entry.scope, key: entry.key, id: entry.note.id };
 }
 
 function findEntry(li) {
@@ -305,6 +330,11 @@ function findEntry(li) {
     if (found) return found;
   }
   return null;
+}
+
+function focusEntryAction(entry) {
+  const button = entry && els.groups.querySelector(`[data-id="${CSS.escape(entry.note.id)}"] [data-action="edit"]`);
+  if (button) button.focus();
 }
 
 function wireNotesView() {
@@ -341,13 +371,15 @@ function wireNotesView() {
         break;
       case 'edit':
         state.confirming = null;
-        state.editing = { scope: entry.scope, key: entry.key, id: entry.note.id };
+        state.editing = refOf(entry);
+        state.editingDraft = entry.note.text;
         renderGroups();
         break;
       case 'delete':
         if (state.settings.confirmDelete) {
           state.editing = null;
-          state.confirming = { scope: entry.scope, key: entry.key, id: entry.note.id };
+          state.editingDraft = '';
+          state.confirming = refOf(entry);
           renderGroups();
           if (event.detail === 0) {
             const btn = els.groups.querySelector(`[data-id="${CSS.escape(entry.note.id)}"] [data-action="confirm-delete"]`);
@@ -364,7 +396,7 @@ function wireNotesView() {
         await saveEdit(entry, li.querySelector('textarea').value);
         break;
       case 'cancel':
-        cancelBusy();
+        cancelBusy(entry);
         break;
       default:
         break;
@@ -372,47 +404,83 @@ function wireNotesView() {
   });
 
   document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && (state.editing || state.confirming)) cancelBusy();
+    if (event.key === 'Escape' && (state.editing || state.confirming)) {
+      const ref = state.editing || state.confirming;
+      cancelBusy(findRef(ref));
+    }
   });
 }
 
-function cancelBusy() {
+function findRef(ref) {
+  for (const site of state.groups) {
+    const found = site.entries.find((e) => e.scope === ref.scope && e.key === ref.key && e.note.id === ref.id);
+    if (found) return found;
+  }
+  return null;
+}
+
+function cancelBusy(entry) {
   state.editing = null;
+  state.editingDraft = '';
   state.confirming = null;
   renderGroups();
+  focusEntryAction(entry);
 }
 
 async function saveEdit(entry, text) {
+  if (state.busy) return;
   if (!text.trim()) {
     toast.show('A note cannot be empty');
     return;
   }
-  if (text !== entry.note.text) {
-    await store.updateNote(entry.scope, entry.key, entry.note.id, text);
+  state.busy = true;
+  try {
+    if (text !== entry.note.text) {
+      await store.updateNote(entry.scope, entry.key, entry.note.id, text);
+    }
+    state.editing = null;
+    state.editingDraft = '';
+    await refreshNotes();
+    focusEntryAction(entry);
+  } catch (error) {
+    console.error(error);
+    toast.show('Could not save the change');
+  } finally {
+    state.busy = false;
   }
-  state.editing = null;
-  await refreshNotes();
 }
 
-let lastDeleted = null;
-
 async function deleteEntry(entry) {
-  await store.deleteNote(entry.scope, entry.key, entry.note.id);
-  state.confirming = null;
-  lastDeleted = entry;
-  await refreshNotes();
-  await refreshStorageSummary();
-  toast.show('Note deleted', {
-    label: 'Undo',
-    onClick: async () => {
-      if (!lastDeleted) return;
-      const { scope, key, note } = lastDeleted;
-      lastDeleted = null;
-      toast.hide();
-      await store.restoreNote(scope, key, note);
-      await refreshNotes();
-    },
-  });
+  if (state.busy) return;
+  state.busy = true;
+  try {
+    await store.deleteNote(entry.scope, entry.key, entry.note.id);
+    state.confirming = null;
+    lastDeleted = entry;
+    await refreshNotes();
+    await refreshStorageSummary();
+    toast.show('Note deleted', { label: 'Undo', onClick: undoDelete });
+  } catch (error) {
+    console.error(error);
+    toast.show('Could not delete the note');
+  } finally {
+    state.busy = false;
+  }
+}
+
+async function undoDelete() {
+  if (!lastDeleted) return;
+  const { scope, key, note } = lastDeleted;
+  lastDeleted = null;
+  toast.hide();
+  try {
+    await store.restoreNote(scope, key, note);
+    await refreshNotes();
+    await refreshStorageSummary();
+  } catch (error) {
+    console.error(error);
+    toast.show('Could not restore the note');
+  }
 }
 
 // Data section
@@ -450,23 +518,15 @@ function wireDataActions() {
     if (!file) return;
     const mode = els.importMode.value;
     if (mode === 'replace') {
-      const ok = window.confirm('Replace will delete every existing note before importing. Continue?');
-      if (!ok) return;
+      showReplaceConfirm(file);
+      return;
     }
-    try {
-      const payload = JSON.parse(await file.text());
-      const result = await store.importData(payload, mode);
-      await refreshNotes();
-      await refreshStorageSummary();
-      toast.show(`Imported ${pluralize(result.added, 'note')}${result.skipped ? `, skipped ${result.skipped}` : ''}`);
-    } catch (error) {
-      console.warn(error);
-      toast.show('That file is not a Jotmark export');
-    }
+    await runImport(file, 'merge');
   });
 
   document.getElementById('btn-reset-settings').addEventListener('click', async () => {
     state.settings = await resetSettings();
+    state.isSubmitKey = submitKeyMatcher(state.settings);
     applyAppearance(state.settings);
     fillSettingsControls();
     updatePreview();
@@ -475,6 +535,52 @@ function wireDataActions() {
   });
 
   document.getElementById('btn-delete-all').addEventListener('click', showDeleteAllConfirm);
+}
+
+// Replacing everything deserves an explicit inline confirmation, in the same
+// style as "delete all notes", rather than a browser dialog.
+function showReplaceConfirm(file) {
+  const controls = els.importControls;
+  const original = [...controls.children];
+  clear(controls);
+  const label = h('span', { class: 'confirm-text' }, `Replace every note with ${file.name}?`);
+  const yes = h('button', { type: 'button', class: 'btn btn-danger' }, 'Replace');
+  const no = h('button', { type: 'button', class: 'btn' }, 'Cancel');
+  const restore = () => {
+    clear(controls);
+    controls.append(...original);
+  };
+  yes.addEventListener('click', async () => {
+    restore();
+    await runImport(file, 'replace');
+  });
+  no.addEventListener('click', restore);
+  controls.append(label, no, yes);
+  no.focus();
+}
+
+async function runImport(file, mode) {
+  let payload;
+  try {
+    payload = JSON.parse(await file.text());
+  } catch {
+    toast.show('That file is not a Jotmark export');
+    return;
+  }
+  try {
+    const result = await store.importData(payload, mode);
+    await refreshNotes();
+    await refreshStorageSummary();
+    const parts = [`Imported ${pluralize(result.added, 'note')}`];
+    if (result.updated) parts.push(`updated ${result.updated}`);
+    if (result.skipped) parts.push(`skipped ${result.skipped}`);
+    toast.show(parts.join(', '));
+  } catch (error) {
+    console.warn(error);
+    if (error instanceof ImportError && error.code === 'write') toast.show('Could not write to storage. Nothing was changed.');
+    else if (error instanceof ImportError) toast.show(error.message);
+    else toast.show('That file is not a Jotmark export');
+  }
 }
 
 async function showDeleteAllConfirm() {
@@ -503,9 +609,4 @@ function restoreDeleteAllButton() {
   const btn = h('button', { type: 'button', class: 'btn btn-danger', id: 'btn-delete-all' }, 'Delete all notes');
   btn.addEventListener('click', showDeleteAllConfirm);
   els.deleteAllControls.append(btn);
-}
-
-function autogrow(textarea) {
-  textarea.style.height = 'auto';
-  textarea.style.height = `${Math.min(textarea.scrollHeight + 2, 320)}px`;
 }

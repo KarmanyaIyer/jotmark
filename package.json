@@ -6,8 +6,8 @@
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.js",
-    "check": "node scripts/check.mjs",
     "qa": "node scripts/qa.mjs",
+    "screenshots": "node scripts/screenshots.mjs",
     "icons": "node scripts/render-icons.mjs",
     "package": "node scripts/package.mjs"
   },

@@ -243,15 +243,15 @@
             </div>
             <div class="row">
               <div class="row-text">
-                <label class="row-title" for="import-file">Import</label>
-                <p class="row-desc">Load a Jotmark export. Merge keeps what you have and adds the rest. Replace removes everything first.</p>
+                <span class="row-title">Import</span>
+                <p class="row-desc">Load a Jotmark export. Merge keeps what you have, adds the rest, and takes newer copies of edited notes. Replace removes everything first.</p>
               </div>
-              <div class="inline-controls">
+              <div class="inline-controls" id="import-controls">
                 <select class="field field-sm" id="import-mode" aria-label="Import mode">
                   <option value="merge">Merge</option>
                   <option value="replace">Replace</option>
                 </select>
-                <input type="file" id="import-file" accept=".json,application/json" class="sr-only">
+                <input type="file" id="import-file" accept=".json,application/json" class="sr-only" aria-label="Import file" tabindex="-1">
                 <button class="btn" type="button" id="btn-import">Choose file</button>
               </div>
             </div>
@@ -265,7 +265,7 @@
             <div class="row row-danger">
               <div class="row-text">
                 <span class="row-title">Delete all notes</span>
-                <p class="row-desc" id="delete-all-desc">Removes every note on every site. This cannot be undone.</p>
+                <p class="row-desc">Removes every note on every site. This cannot be undone.</p>
               </div>
               <div class="inline-controls" id="delete-all-controls">
                 <button class="btn btn-danger" type="button" id="btn-delete-all">Delete all notes</button>

@@ -8,12 +8,15 @@
   --ink: #111111;
   --ink-2: #444444;
   --muted: #6b6b6b;
-  --faint: #9a9a9a;
+  --faint: #767676;
   --line: #e4e4e4;
   --line-strong: #111111;
   --danger: #c62828;
   --danger-bg: #fdecec;
   --shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --toast-bg: #111111;
+  --toast-ink: #ffffff;
+  --toast-line: #111111;
 
   --accent: #ffe34d;
   --accent-ink: #111111;
@@ -45,12 +48,15 @@
   --ink: #f2f2f2;
   --ink-2: #cfcfcf;
   --muted: #9a9a9a;
-  --faint: #6b6b6b;
+  --faint: #8a8a8a;
   --line: #2a2a2a;
   --line-strong: #f2f2f2;
   --danger: #ff6b6b;
   --danger-bg: #2a1414;
   --shadow: none;
+  --toast-bg: #2c2c2c;
+  --toast-ink: #f2f2f2;
+  --toast-line: #454545;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -60,12 +66,15 @@
     --ink: #f2f2f2;
     --ink-2: #cfcfcf;
     --muted: #9a9a9a;
-    --faint: #6b6b6b;
+    --faint: #8a8a8a;
     --line: #2a2a2a;
     --line-strong: #f2f2f2;
     --danger: #ff6b6b;
     --danger-bg: #2a1414;
     --shadow: none;
+    --toast-bg: #2c2c2c;
+    --toast-ink: #f2f2f2;
+    --toast-line: #454545;
   }
 }
 
@@ -81,9 +90,9 @@
 :root[data-font-size="large"]  { --fs-base: 15px; --fs-small: 13px; --fs-tiny: 12px; --fs-heading: 17px; }
 :root[data-font-size="xlarge"] { --fs-base: 16px; --fs-small: 14px; --fs-tiny: 13px; --fs-heading: 18px; }
 
-:root[data-note-font="system"] { --font-note: var(--font-ui); }
-:root[data-note-font="serif"]  { --font-note: var(--font-serif); }
-:root[data-note-font="mono"]   { --font-note: var(--font-mono); }
+:root[data-note-font="system"] { --font-note: var(--font-ui); --fs-note: var(--fs-base); }
+:root[data-note-font="serif"]  { --font-note: var(--font-serif); --fs-note: calc(var(--fs-base) + 1px); }
+:root[data-note-font="mono"]   { --font-note: var(--font-mono); --fs-note: calc(var(--fs-base) - 1px); }
 
 :root[data-density="compact"] {
   --pad-x: 12px;
@@ -141,14 +150,14 @@ mark { background: var(--accent); color: var(--accent-ink); padding: 0 1px; bord
 :focus-visible {
   outline: 2px solid var(--ink);
   outline-offset: 2px;
-  border-radius: 2px;
 }
 textarea:focus, input[type="text"]:focus, input[type="search"]:focus, select:focus,
 textarea:focus-visible, input[type="text"]:focus-visible, input[type="search"]:focus-visible, select:focus-visible {
   outline: none;
   border-color: var(--line-strong);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  box-shadow: 0 0 0 2px var(--accent);
 }
+.note-text a:focus-visible { outline-offset: 1px; }
 
 /* Scrollbars */
 * {
@@ -307,9 +316,11 @@ textarea:focus-visible, input[type="text"]:focus-visible, input[type="search"]:f
   line-height: 1.45;
 }
 .field::placeholder { color: var(--faint); }
+input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
 textarea.field {
   resize: none;
   font-family: var(--font-note);
+  font-size: var(--fs-note, var(--fs-base));
   overflow-y: auto;
 }
 select.field {
@@ -384,15 +395,16 @@ select.field {
 .note:hover::before, .note:focus-within::before { background: var(--accent); }
 .note-text {
   font-family: var(--font-note);
-  font-size: var(--fs-base);
+  font-size: var(--fs-note, var(--fs-base));
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   word-break: break-word;
 }
 .note-meta {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 10px;
+  gap: 6px 10px;
   margin-top: 4px;
   font-size: var(--fs-small);
   color: var(--muted);
@@ -401,7 +413,7 @@ select.field {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-.note-edited { color: var(--faint); }
+.note-edited { color: var(--muted); }
 .note-actions {
   display: inline-flex;
   gap: 10px;
@@ -417,6 +429,7 @@ select.field {
   gap: 8px;
   margin-left: auto;
   color: var(--ink);
+  white-space: nowrap;
 }
 .note-editor { display: grid; gap: 6px; }
 .note-editor-row { display: flex; justify-content: flex-end; gap: 6px; }
@@ -426,6 +439,7 @@ select.field {
   color: var(--muted);
   font-size: var(--fs-small);
   text-align: center;
+  overflow-wrap: anywhere;
 }
 .empty strong { color: var(--ink); font-weight: 600; }
 
@@ -436,9 +450,10 @@ select.field {
   bottom: 12px;
   transform: translateX(-50%) translateY(6px);
   padding: 6px 10px;
+  border: 1px solid var(--toast-line);
   border-radius: var(--radius);
-  background: var(--ink);
-  color: var(--paper);
+  background: var(--toast-bg);
+  color: var(--toast-ink);
   font-size: var(--fs-small);
   opacity: 0;
   pointer-events: none;
@@ -459,7 +474,6 @@ select.field {
 }
 
 .muted { color: var(--muted); }
-.tabular { font-variant-numeric: tabular-nums; }
 kbd {
   display: inline-block;
   padding: 0 4px;

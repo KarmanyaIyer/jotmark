@@ -41,6 +41,19 @@ test('pageKey respects ignoreQuery and keepFragment', () => {
   assert.equal(pageKey('https://example.com/a#top', keep), 'https://example.com/a#top');
 });
 
+test('pageKey sorts repeated params by value too', () => {
+  assert.equal(pageKey('https://example.com/a?x=2&x=1'), pageKey('https://example.com/a?x=1&x=2'));
+});
+
+test('describeUrl shows the fragment only when it is part of the key', () => {
+  const keep = { ignoreQuery: false, keepFragment: true, groupSubdomains: false };
+  const info = describeUrl('https://x.com/app#/inbox?c=2', keep);
+  assert.equal(info.pageKey, 'https://x.com/app#/inbox?c=2');
+  assert.equal(info.displayPath, '/app#/inbox?c=2');
+  const drop = describeUrl('https://x.com/app#/inbox?c=2');
+  assert.equal(drop.displayPath, '/app');
+});
+
 test('pageKey keeps ports and non tracking params', () => {
   assert.equal(pageKey('http://localhost:3000/app?tab=2'), 'http://localhost:3000/app?tab=2');
   assert.equal(pageKey('https://youtube.com/watch?v=abc'), 'https://youtube.com/watch?v=abc');

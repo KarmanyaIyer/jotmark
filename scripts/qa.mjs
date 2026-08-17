@@ -46,6 +46,20 @@ async function pressModEnter(page) {
   await page.keyboard.up(mod);
 }
 
+// WCAG contrast ratio between two "rgb(r, g, b)" strings.
+function contrast(a, b) {
+  const lum = (css) => {
+    const [r, g, b2] = css.match(/\d+/g).map(Number).map((v) => {
+      const c = v / 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b2;
+  };
+  const l1 = lum(a);
+  const l2 = lum(b);
+  return (Math.max(l1, l2) + 0.05) / (Math.min(l1, l2) + 0.05);
+}
+
 async function clickReal(page, selector) {
   // A real mouse click through CDP, so :focus-visible heuristics behave as in
   // normal use (unlike element.click() from script).
@@ -253,11 +267,115 @@ try {
     equal(await count(popup, '.note'), 2);
     assert(await popup.$('.toast.is-visible .toast-action'), 'undo offered');
   });
+  await check('confirm row stays inside the popup at xlarge with absolute times', async () => {
+    await popup.evaluate(async () => {
+      const { saveSettings } = await import(chrome.runtime.getURL('shared/settings.js'));
+      await saveSettings({ fontSize: 'xlarge', timeFormat: 'absolute', confirmDelete: true, submitKey: 'mod-enter', sortOrder: 'newest' });
+    });
+    await sleep(150);
+    await popup.hover('.note:first-child');
+    await clickReal(popup, '.note:first-child [data-action="delete"]');
+    await popup.waitForSelector('[data-action="confirm-delete"]');
+    const widths = await popup.evaluate(() => ({ scroll: document.getElementById('notes').scrollWidth, client: document.getElementById('notes').clientWidth }));
+    assert(widths.scroll <= widths.client, `notes overflow horizontally: ${widths.scroll} > ${widths.client}`);
+    await popup.keyboard.press('Escape');
+    await sleep(80);
+  });
+  await check('escape on a delete prompt returns focus to that note', async () => {
+    await popup.hover('.note:first-child');
+    await clickReal(popup, '.note:first-child [data-action="delete"]');
+    await popup.waitForSelector('[data-action="confirm-delete"]');
+    await popup.keyboard.press('Escape');
+    await sleep(80);
+    const focused = await popup.evaluate(() => document.activeElement.dataset.action);
+    equal(focused, 'edit');
+  });
+  await check('an edit draft survives an external storage change', async () => {
+    await popup.hover('.note:first-child');
+    await clickReal(popup, '.note:first-child [data-action="edit"]');
+    await popup.waitForSelector('.note-editor textarea');
+    await popup.type('.note-editor textarea', ' DRAFT');
+    await popup.evaluate(async () => {
+      const { createStore } = await import(chrome.runtime.getURL('shared/storage.js'));
+      await createStore().addNote('page', 'https://github.com/settings/keys?tab=ssh', 'added elsewhere');
+    });
+    await sleep(200);
+    const value = await popup.$eval('.note-editor textarea', (el) => el.value);
+    assert(value.endsWith(' DRAFT'), `draft lost: ${value}`);
+    await popup.keyboard.press('Escape');
+    await sleep(80);
+    await popup.evaluate(async () => {
+      const { createStore } = await import(chrome.runtime.getURL('shared/storage.js'));
+      const store = createStore();
+      const list = await store.getNotes('page', 'https://github.com/settings/keys?tab=ssh');
+      for (const n of list.filter((x) => x.text === 'added elsewhere')) await store.deleteNote('page', 'https://github.com/settings/keys?tab=ssh', n.id);
+    });
+    await sleep(100);
+  });
+  await check('undo toast stays readable in dark mode', async () => {
+    await popup.evaluate(async () => {
+      const { saveSettings } = await import(chrome.runtime.getURL('shared/settings.js'));
+      await saveSettings({ theme: 'dark', confirmDelete: false });
+    });
+    await sleep(150);
+    await popup.hover('.note:last-child');
+    await clickReal(popup, '.note:last-child [data-action="delete"]');
+    await popup.waitForSelector('.toast.is-visible .toast-action');
+    const colors = await popup.evaluate(() => {
+      const toast = document.getElementById('toast');
+      return { bg: getComputedStyle(toast).backgroundColor, action: getComputedStyle(toast.querySelector('.toast-action')).color, text: getComputedStyle(toast).color };
+    });
+    assert(contrast(colors.action, colors.bg) >= 4.5, `undo contrast ${contrast(colors.action, colors.bg).toFixed(2)}`);
+    assert(contrast(colors.text, colors.bg) >= 4.5, `toast text contrast ${contrast(colors.text, colors.bg).toFixed(2)}`);
+    await clickReal(popup, '.toast-action');
+    await sleep(150);
+  });
   await popup.evaluate(async () => {
     const { resetSettings } = await import(chrome.runtime.getURL('shared/settings.js'));
     await resetSettings();
   });
   await popup.close();
+
+  group('Popup: long lists');
+  await check('a long list scrolls inside the popup instead of being clipped', async () => {
+    const p = await openPopupFor(browser, extensionId, 'https://many.example.com/');
+    p.on('pageerror', (e) => pageErrors.push(`popup: ${e.message}`));
+    await p.evaluate(async () => {
+      const { createStore } = await import(chrome.runtime.getURL('shared/storage.js'));
+      const store = createStore();
+      for (let i = 1; i <= 40; i += 1) await store.addNote('domain', 'many.example.com', `Note number ${i}`);
+    });
+    await p.reload({ waitUntil: 'load' });
+    await p.waitForSelector('html[data-ready]');
+    const metrics = await p.evaluate(() => {
+      const notes = document.getElementById('notes');
+      return { scroll: notes.scrollHeight, client: notes.clientHeight, page: document.documentElement.scrollHeight };
+    });
+    assert(metrics.scroll > metrics.client, 'notes container should scroll');
+    assert(metrics.page <= 600, `popup taller than the 600px cap: ${metrics.page}`);
+    const reachable = await p.evaluate(() => {
+      const notes = document.getElementById('notes');
+      notes.scrollTop = notes.scrollHeight;
+      const last = notes.querySelector('.note:last-child').getBoundingClientRect();
+      return last.bottom <= window.innerHeight + 1;
+    });
+    assert(reachable, 'last note cannot be scrolled into view');
+    await p.evaluate(() => chrome.storage.local.remove('d:many.example.com'));
+    await p.close();
+  });
+  await check('a bad timestamp in storage does not break the popup or the options page', async () => {
+    await (await browser.newPage()).close();
+    const p = await openPopupFor(browser, extensionId, 'https://bad.example.com/');
+    await p.evaluate(() => chrome.storage.local.set({ 'd:bad.example.com': [{ id: 'bad', text: 'x', createdAt: 1e20, updatedAt: 1e20 }] }));
+    await p.reload({ waitUntil: 'load' });
+    await p.waitForSelector('html[data-ready]');
+    equal(await p.$eval('#site-view', (el) => el.hidden), false);
+    await p.close();
+    const o = await openOptions(browser, extensionId, '#notes');
+    equal(await o.$eval('#view-notes', (el) => el.hidden), false);
+    await o.evaluate(() => chrome.storage.local.remove('d:bad.example.com'));
+    await o.close();
+  });
 
   group('Popup: unsupported pages');
   for (const [url, label] of [['chrome://extensions', 'chrome://'], ['about:blank', 'about:blank'], ['file:///tmp/a.html', 'file://'], ['', 'empty url']]) {
@@ -266,6 +384,7 @@ try {
       p.on('pageerror', (e) => pageErrors.push(`popup: ${e.message}`));
       equal(await p.$eval('#unsupported-view', (el) => el.hidden), false);
       equal(await p.$eval('#site-view', (el) => el.hidden), true);
+      equal(await p.$eval('.site-actions', (el) => el.hidden), true, 'header icons hidden');
       await p.close();
     });
   }
@@ -277,7 +396,7 @@ try {
     equal(await count(options, '.group'), 1);
     equal(await text(options, '.group-host'), 'github.com');
     equal(await count(options, '#groups .note'), 3);
-    equal(await count(options, '#groups .scope-tag'), 3);
+    equal(await count(options, '#groups .scope-tag'), 1, 'only page notes carry a tag');
     assert((await text(options, '#notes-summary')).startsWith('3 notes across 1 site'), 'summary');
   });
   await check('search filters and highlights matches', async () => {
@@ -307,6 +426,19 @@ try {
     await sleep(150);
     const texts = await options.$$eval('#groups .note-text', (els) => els.map((e) => e.textContent));
     assert(texts.includes('Edited from options'), 'edited text present');
+  });
+  await check('an edit draft survives typing in the search box', async () => {
+    await options.hover('#groups .note');
+    await clickReal(options, '#groups .note [data-action="edit"]');
+    await options.waitForSelector('.note-editor textarea');
+    await options.type('.note-editor textarea', ' DRAFT');
+    await options.type('#search', 'e');
+    await sleep(200);
+    const value = await options.$eval('.note-editor textarea', (el) => el.value);
+    assert(value.endsWith(' DRAFT'), `draft lost: ${value}`);
+    await options.keyboard.press('Escape');
+    await options.$eval('#search', (el) => { el.value = ''; el.dispatchEvent(new Event('input')); });
+    await sleep(200);
   });
   await check('deletes a note from the all notes page', async () => {
     await options.hover('#groups .note');
@@ -391,6 +523,45 @@ try {
     await options.goto(`chrome-extension://${extensionId}/options/options.html#notes`, { waitUntil: 'load' });
     await options.waitForSelector('html[data-ready]');
     equal(await count(options, '.group'), 2);
+  });
+  await check('replace import refuses a file with nothing usable and keeps notes', async () => {
+    const outcome = await options.evaluate(async () => {
+      const { createStore } = await import(chrome.runtime.getURL('shared/storage.js'));
+      const store = createStore();
+      const before = await store.countAll();
+      let error = null;
+      try {
+        await store.importData({ notes: ['a', 'b', { foo: 1 }] }, 'replace');
+      } catch (e) {
+        error = e.message;
+      }
+      return { before, after: await store.countAll(), error };
+    });
+    assert(outcome.error, 'import should throw');
+    equal(outcome.after, outcome.before, 'notes must be untouched');
+  });
+  await check('an open options page switches view when the popup asks through session storage', async () => {
+    await options.goto(`chrome-extension://${extensionId}/options/options.html#notes`, { waitUntil: 'load' });
+    await options.waitForSelector('html[data-ready]');
+    await options.evaluate(() => chrome.storage.session.set({ openView: 'settings' }));
+    await sleep(150);
+    equal(await options.$eval('#view-settings', (el) => el.hidden), false);
+    equal(await options.evaluate(() => location.hash), '#settings');
+    const left = await options.evaluate(() => chrome.storage.session.get('openView'));
+    equal(left.openView, undefined, 'request consumed');
+  });
+  await check('a freshly opened options page starts on the requested view', async () => {
+    await options.close();
+    const p = await openPopupFor(browser, extensionId, 'https://github.com/');
+    await p.evaluate(() => chrome.storage.session.set({ openView: 'about' }));
+    await p.close();
+    options = await browser.newPage();
+    options.on('pageerror', (e) => pageErrors.push(`options: ${e.message}`));
+    await options.goto(`chrome-extension://${extensionId}/options/options.html`, { waitUntil: 'load' });
+    await options.waitForSelector('html[data-ready]');
+    await sleep(100);
+    equal(await options.$eval('#view-about', (el) => el.hidden), false);
+    equal(await options.evaluate(() => location.hash), '#about');
   });
   await check('delete all asks first, then clears everything', async () => {
     await options.goto(`chrome-extension://${extensionId}/options/options.html#settings`, { waitUntil: 'load' });

@@ -59,8 +59,10 @@ export async function loadSettings(area = globalThis.chrome?.storage?.local) {
   return sanitizeSettings(result[SETTINGS_KEY]);
 }
 
-export async function saveSettings(patch, area = globalThis.chrome?.storage?.local) {
-  const current = await loadSettings(area);
+// Pass the caller's current settings as base to avoid a read before the write;
+// otherwise the stored value is read first.
+export async function saveSettings(patch, area = globalThis.chrome?.storage?.local, base = null) {
+  const current = base || (await loadSettings(area));
   const next = sanitizeSettings({ ...current, ...patch });
   await area.set({ [SETTINGS_KEY]: next });
   return next;

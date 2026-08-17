@@ -37,7 +37,7 @@ const MULTI_LABEL_SUFFIXES = new Set([
   'com.ua', 'org.ua', 'gov.ua', 'com.pl', 'org.pl', 'edu.pl', 'com.pk', 'edu.pk',
   'com.bd', 'com.ng', 'org.ng', 'gov.ng', 'co.ke', 'or.ke', 'ac.ke', 'go.ke',
   'com.pe', 'com.co', 'com.ve', 'com.ec', 'com.uy', 'com.py', 'com.bo', 'com.do',
-  'com.gt', 'com.sv', 'com.hn', 'com.ni', 'co.cr', 'com.pa', 'com.pr', 'com.ni',
+  'com.gt', 'com.sv', 'com.hn', 'com.ni', 'co.cr', 'com.pa', 'com.pr',
   'co.th', 'ac.th', 'or.th', 'go.th', 'com.np', 'edu.np', 'com.lk', 'com.kw', 'com.qa',
   'com.ae', 'ac.ae', 'co.ao', 'co.mz', 'co.tz', 'co.ug', 'co.zw', 'com.gh', 'com.et',
   'com.ru', 'org.ru', 'net.ru', 'msk.ru', 'spb.ru',
@@ -90,28 +90,36 @@ export function domainKey(host, options = DEFAULT_URL_OPTIONS) {
   return options.groupSubdomains ? registrableDomain(clean) : clean;
 }
 
+function normalizedPath(u) {
+  const path = u.pathname || '/';
+  return path.length > 1 && path.endsWith('/') ? path.slice(0, -1) : path;
+}
+
+// Query string with tracking parameters removed and the rest sorted by name
+// and value, so param order does not create a second page. Empty when nothing
+// is left or when the query is ignored.
+function normalizedSearch(u, options) {
+  if (options.ignoreQuery || u.search.length <= 1) return '';
+  const kept = [];
+  for (const [name, value] of new URLSearchParams(u.search)) {
+    if (!isTrackingParam(name)) kept.push([name, value]);
+  }
+  kept.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0));
+  return kept.length ? '?' + new URLSearchParams(kept).toString() : '';
+}
+
+function normalizedHash(u, options) {
+  return options.keepFragment && u.hash.length > 1 ? u.hash : '';
+}
+
 // The key notes are filed under in page scope. Normalises the URL so that
 // harmless variations (trailing slash, tracking params, param order, hash)
 // map to the same page.
 export function pageKey(url, options = DEFAULT_URL_OPTIONS) {
   const u = url instanceof URL ? url : new URL(url);
   const host = stripWww(u.hostname).toLowerCase();
-  let path = u.pathname || '/';
-  if (path.length > 1 && path.endsWith('/')) path = path.slice(0, -1);
-
-  let search = '';
-  if (!options.ignoreQuery && u.search.length > 1) {
-    const kept = [];
-    for (const [name, value] of new URLSearchParams(u.search)) {
-      if (!isTrackingParam(name)) kept.push([name, value]);
-    }
-    kept.sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
-    if (kept.length) search = '?' + new URLSearchParams(kept).toString();
-  }
-
-  const hash = options.keepFragment && u.hash.length > 1 ? u.hash : '';
   const port = u.port ? ':' + u.port : '';
-  return `${u.protocol}//${host}${port}${path}${search}${hash}`;
+  return `${u.protocol}//${host}${port}${normalizedPath(u)}${normalizedSearch(u, options)}${normalizedHash(u, options)}`;
 }
 
 // Everything the popup needs to know about the current tab URL.
@@ -129,19 +137,16 @@ export function describeUrl(rawUrl, options = DEFAULT_URL_OPTIONS) {
   if (!u.hostname) return { supported: false, reason: 'nohost' };
 
   const host = stripWww(u.hostname).toLowerCase();
-  const page = pageKey(u, options);
-  const domain = domainKey(u.hostname, options);
-  // Path shown under the host in the popup header. Kept readable rather than encoded.
-  let displayPath = safeDecode(u.pathname);
-  if (displayPath.length > 1 && displayPath.endsWith('/')) displayPath = displayPath.slice(0, -1);
-  if (!options.ignoreQuery && page.includes('?')) displayPath += page.slice(page.indexOf('?'));
+  // Path shown under the host in the popup header: the same parts that make up
+  // the page key, decoded so it reads like the address bar.
+  const displayPath = safeDecode(normalizedPath(u) + normalizedSearch(u, options) + normalizedHash(u, options));
   return {
     supported: true,
     href: u.href,
     host,
-    domainKey: domain,
-    pageKey: page,
-    displayPath: displayPath === '' ? '/' : displayPath,
+    domainKey: domainKey(u.hostname, options),
+    pageKey: pageKey(u, options),
+    displayPath,
   };
 }
 

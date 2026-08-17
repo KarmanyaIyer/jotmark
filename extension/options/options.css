@@ -38,10 +38,6 @@ body {
   gap: 40px;
   padding-top: 28px;
 }
-@media (max-width: 720px) {
-  .layout { grid-template-columns: 1fr; gap: 16px; }
-  .sidenav { flex-direction: row; position: static; }
-}
 .sidenav {
   display: flex;
   flex-direction: column;
@@ -49,6 +45,10 @@ body {
   position: sticky;
   top: 24px;
   align-self: start;
+}
+@media (max-width: 720px) {
+  .layout { grid-template-columns: 1fr; gap: 16px; }
+  .sidenav { flex-direction: row; flex-wrap: wrap; position: static; }
 }
 .sidenav a {
   padding: 7px 10px;
@@ -102,6 +102,7 @@ label.row-title { cursor: pointer; }
 .seg-fixed label { padding: 0 14px; flex: 0 0 auto; }
 .inline-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .inline-controls .field-sm { min-width: 110px; }
+.inline-controls .confirm-text { font-size: var(--fs-small); }
 
 /* Color swatches */
 .swatches { display: flex; gap: 10px; }
@@ -121,7 +122,8 @@ label.row-title { cursor: pointer; }
 .swatch[data-accent="orange"] > span:first-of-type { background: #ffb454; }
 .swatch:hover > span:first-of-type { transform: scale(1.08); }
 .swatch:has(input:checked) > span:first-of-type { box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px var(--ink); }
-.swatch:has(input:focus-visible) > span:first-of-type { box-shadow: 0 0 0 2px var(--paper), 0 0 0 4px var(--ink); }
+/* Keyboard focus gets a square outline so it never looks like selection. */
+.swatch:has(input:focus-visible) { outline: 2px solid var(--ink); outline-offset: 4px; border-radius: 2px; }
 
 /* Preview */
 .preview {
@@ -156,8 +158,8 @@ label.row-title { cursor: pointer; }
   border-bottom: 1px solid var(--line);
 }
 .group-host { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.group-count { font-size: var(--fs-small); color: var(--muted); white-space: nowrap; }
-.group-open { margin-left: auto; }
+.group-count { font-size: var(--fs-small); color: var(--muted); white-space: nowrap; flex-shrink: 0; }
+.group-open { margin-left: auto; white-space: nowrap; flex-shrink: 0; }
 .group-body { padding: 0 14px; }
 .group-body .note::before { left: -14px; }
 .scope-tag {
@@ -194,6 +196,7 @@ label.row-title { cursor: pointer; }
 
 /* About */
 .about { padding: 18px 20px; }
+.about p { max-width: 68ch; }
 .about p + p { margin-top: 10px; }
 .about h2 { margin: 18px 0 6px; font-size: var(--fs-base); }
 .about .links { margin: 0; padding-left: 18px; }

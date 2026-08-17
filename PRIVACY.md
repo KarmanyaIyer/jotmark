@@ -31,7 +31,7 @@ You can export all notes as a JSON file from the settings page, and you can dele
 
 | Permission | Why it is needed |
 | --- | --- |
-| `activeTab` | To read the address of the current tab at the moment you click the icon, so notes can be filed under the right site. This grants access only to that tab and only while the popup is open. |
+| `activeTab` | To read the address of the current tab at the moment you click the icon, so notes can be filed under the right site. This grants access to that tab only, and only until it navigates somewhere else or closes. |
 | `storage` | To keep notes and settings in local storage. |
 
 ## Changes

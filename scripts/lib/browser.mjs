@@ -1,7 +1,6 @@
 // Shared helpers for scripts that drive the extension in a real Chrome.
 // Uses puppeteer-core with a locally installed Chrome. No downloads.
 
-import { createHash } from 'node:crypto';
 import { existsSync, readdirSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
@@ -10,13 +9,6 @@ import puppeteer from 'puppeteer-core';
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 export const EXTENSION_DIR = path.join(ROOT, 'extension');
-
-// Chrome computes the id of an unpacked extension from the absolute path:
-// sha256(path) -> first 32 hex chars -> each hex digit mapped onto a..p.
-export function unpackedExtensionId(dir = EXTENSION_DIR) {
-  const hex = createHash('sha256').update(path.resolve(dir)).digest('hex').slice(0, 32);
-  return [...hex].map((c) => String.fromCharCode('a'.charCodeAt(0) + parseInt(c, 16))).join('');
-}
 
 export function findChrome() {
   if (process.env.CHROME_PATH && existsSync(process.env.CHROME_PATH)) return process.env.CHROME_PATH;
@@ -51,7 +43,7 @@ export async function launchWithExtension({ headless = true, extraArgs = [] } = 
     args: ['--no-first-run', '--no-default-browser-check', '--hide-scrollbars', ...extraArgs],
   });
   // Puppeteer installs the unpacked extension over the devtools protocol and
-  // hands back the id Chrome assigned, which matches unpackedExtensionId().
+  // hands back the id Chrome assigned to it.
   const extensionId = await browser.installExtension(EXTENSION_DIR);
   return { browser, extensionId, executablePath };
 }
