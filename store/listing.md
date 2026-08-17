@@ -79,7 +79,7 @@ Jotmark lets the user write, view, edit, and delete timestamped notes attached t
 **Permission justification: activeTab**
 
 ```
-When the user clicks the Jotmark icon (or presses its keyboard shortcut), the popup needs the URL of the current tab so it can show and save notes filed under that tab's domain or page. activeTab grants exactly that, only for the tab the user invoked it on and only while the popup is open. Jotmark does not inject any script into the tab and does not read page content; it reads the tab URL and nothing else.
+When the user clicks the Jotmark icon (or presses its keyboard shortcut), the popup needs the URL of the current tab so it can show and save notes filed under that tab's domain or page. activeTab grants exactly that, only for the tab the user invoked it on, and only until that tab navigates elsewhere or closes. Jotmark does not inject any script into the tab and does not read page content; it reads the tab URL and nothing else.
 ```
 
 **Permission justification: storage**

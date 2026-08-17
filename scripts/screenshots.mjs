@@ -29,7 +29,7 @@ function seedNotes(now) {
   return [
     ['domain', 'github.com', 'Rate limit is 60 requests an hour without a token. Docs live under /rest.', now - 2 * HOUR],
     ['domain', 'github.com', 'Ask about the invoice before renewing the org plan.', now - 26 * HOUR],
-    ['domain', 'github.com', 'Release checklist: tag, changelog, then the announcement post.', now - 4 * DAY],
+    ['domain', 'github.com', 'Release checklist:\n[x] tag the release\n[ ] update the changelog\n[ ] announcement post', now - 4 * DAY],
     ['page', 'https://github.com/settings/keys', 'Rotate the deploy key in September. The old one expires on the 30th.', now - 3 * DAY],
     ['page', 'https://github.com/settings/keys', 'Read only key is fine for the docs site.', now - 9 * DAY],
     ['domain', 'developer.mozilla.org', 'Prefer the "Syntax" section over the examples for edge cases.', now - 5 * DAY],
@@ -101,7 +101,7 @@ try {
     {
       file: '01-popup.png',
       title: 'Notes that stay with the site',
-      body: 'Open Jotmark on any website and pick up where you left off. Every note is timestamped.',
+      body: 'Open Jotmark on any website and pick up where you left off. Every note is timestamped, and [ ] lines become checklists.',
       html: browserMock({ url: 'github.com/settings/keys', popup: captures.popupDomain }),
     },
     {
