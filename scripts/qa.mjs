@@ -580,7 +580,7 @@ try {
       if (el.id && document.querySelector(`label[for="${el.id}"]`)) return false;
       return !el.getAttribute('aria-label') && !el.getAttribute('aria-labelledby');
     }).map((el) => el.dataset.setting));
-    equal(missing.length, 0, `unlabelled: ${missing.join(', ')}`);
+    equal(missing.length, 0, `unlabeled: ${missing.join(', ')}`);
   });
   await check('clicking a row title toggles its switch', async () => {
     await options.goto(`chrome-extension://${extensionId}/options/options.html#settings`, { waitUntil: 'load' });

@@ -289,10 +289,12 @@ function renderEntry(entry, query, now) {
   // Domain notes are the common case and need no label; page notes show
   // which page they belong to.
   if (scope === 'page') {
-    li.append(h('div', { class: 'note-where' },
-      h('span', { class: 'scope-tag' }, 'page'),
-      h('a', { class: 'path', href: key, target: '_blank', rel: 'noopener noreferrer', title: key }, ...noteTextNodes(labelForKey(scope, key), { linkify: false }, query)),
-    ));
+    const label = noteTextNodes(labelForKey(scope, key), { linkify: false }, query);
+    // Only http(s) keys become links; anything else (a hand edited import) is shown as text.
+    const where = /^https?:\/\//.test(key)
+      ? h('a', { class: 'path', href: key, target: '_blank', rel: 'noopener noreferrer', title: key }, ...label)
+      : h('span', { class: 'path', title: key }, ...label);
+    li.append(h('div', { class: 'note-where' }, h('span', { class: 'scope-tag' }, 'page'), where));
   }
 
   if (isSame(state.editing, entry)) {

@@ -49,7 +49,7 @@ export async function launchWithExtension({ headless = true, extraArgs = [] } = 
 }
 
 // Opens popup.html in a normal tab and makes chrome.tabs.query report a fake
-// active tab, so popup behaviour can be tested for any URL without a real site.
+// active tab, so popup behavior can be tested for any URL without a real site.
 export async function openPopupFor(browser, extensionId, url, { width = 380, height = 600, colorScheme } = {}) {
   const page = await browser.newPage();
   await page.setViewport({ width, height, deviceScaleFactor: 2 });

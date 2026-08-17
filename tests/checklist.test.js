@@ -5,7 +5,7 @@ import {
 } from '../extension/shared/checklist.js';
 import { sanitizeSettings, DEFAULT_SETTINGS } from '../extension/shared/settings.js';
 
-test('parseChecklistLine recognises open and done items with optional bullets', () => {
+test('parseChecklistLine recognizes open and done items with optional bullets', () => {
   assert.deepEqual(parseChecklistLine('[ ] milk'), { prefix: '', checked: false, body: 'milk', markerEnd: 3 });
   assert.deepEqual(parseChecklistLine('[] milk'), { prefix: '', checked: false, body: 'milk', markerEnd: 2 });
   assert.equal(parseChecklistLine('[x] milk').checked, true);

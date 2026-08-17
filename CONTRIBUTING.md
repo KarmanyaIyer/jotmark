@@ -15,13 +15,14 @@ Load `extension/` as an unpacked extension in `chrome://extensions` (Developer m
 ## Checks
 
 ```bash
-pnpm test        # unit tests for shared modules (node:test)
-pnpm run qa      # end to end run against the real extension in headless Chrome
-pnpm run icons   # regenerate PNG icons from extension/icons/icon.svg
-pnpm run package # build dist/jotmark-<version>.zip for the Chrome Web Store
+pnpm test            # unit tests for shared modules (node:test)
+pnpm run qa          # end to end run against the real extension in headless Chrome
+pnpm run icons       # regenerate PNG icons from extension/icons/icon.svg
+pnpm run screenshots # render store screenshots and promo tiles into store/
+pnpm run package     # build dist/jotmark-<version>.zip (uses the zip and unzip commands)
 ```
 
-`pnpm run qa` opens the popup as a tab with `chrome.tabs.query` stubbed to a chosen URL, so it can exercise the popup for any site without a real page. Add a check there for any behaviour change that a user could notice.
+`pnpm run qa` opens the popup as a tab with `chrome.tabs.query` stubbed to a chosen URL, so it can exercise the popup for any site without a real page. Add a check there for any behavior change that a user could notice.
 
 ## Ground rules
 

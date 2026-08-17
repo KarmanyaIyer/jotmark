@@ -23,7 +23,7 @@ test('registrableDomain handles common suffixes', () => {
   assert.equal(registrableDomain('example.com'), 'example.com');
 });
 
-test('pageKey normalises trailing slash, hash, tracking params and param order', () => {
+test('pageKey normalizes trailing slash, hash, tracking params and param order', () => {
   assert.equal(pageKey('https://Example.com/docs/'), 'https://example.com/docs');
   assert.equal(pageKey('https://example.com/'), 'https://example.com/');
   assert.equal(pageKey('https://example.com/a#section'), 'https://example.com/a');

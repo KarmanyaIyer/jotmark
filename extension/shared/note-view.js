@@ -120,7 +120,7 @@ export function confirmButtons() {
   );
 }
 
-// Returns a predicate that tells whether a keydown should submit, honouring
+// Returns a predicate that tells whether a keydown should submit, honoring
 // the "add a note with" setting: Enter alone, or Ctrl/Cmd + Enter.
 export function submitKeyMatcher(settings) {
   return (event) => {

@@ -112,7 +112,7 @@ function normalizedHash(u, options) {
   return options.keepFragment && u.hash.length > 1 ? u.hash : '';
 }
 
-// The key notes are filed under in page scope. Normalises the URL so that
+// The key notes are filed under in page scope. Normalizes the URL so that
 // harmless variations (trailing slash, tracking params, param order, hash)
 // map to the same page.
 export function pageKey(url, options = DEFAULT_URL_OPTIONS) {

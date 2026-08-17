@@ -79,18 +79,10 @@ try {
   await popup.close();
 
   // Options: all notes with a search
-  let options = await openOptions(browser, extensionId, '#notes', { width: 1180, height: 760 });
-  await sleep(150);
-  captures.allNotes = await options.screenshot({ encoding: 'base64' });
+  const options = await openOptions(browser, extensionId, '#notes', { width: 1180, height: 760 });
   await options.type('#search', 'key');
   await sleep(250);
   captures.allNotesSearch = await options.screenshot({ encoding: 'base64' });
-  await options.close();
-
-  // Options: settings (appearance section)
-  options = await openOptions(browser, extensionId, '#settings', { width: 1180, height: 760 });
-  await sleep(150);
-  captures.settings = await options.screenshot({ encoding: 'base64' });
   await options.close();
 
   // Compose the frames.
@@ -189,8 +181,8 @@ function browserMock({ url, popup, page, dark = false, wide = false }) {
   const chromeBg = dark ? '#202124' : '#f1f3f4';
   const barBg = dark ? '#35363a' : '#ffffff';
   const text = dark ? '#e8eaed' : '#3c4043';
-  const pageBg = dark ? '#121212' : '#ffffff';
-  const placeholder = dark ? '#1f1f1f' : '#eceff1';
+  const pageBg = dark ? '#1c1d21' : '#ffffff';
+  const placeholder = dark ? '#2a2c31' : '#eceff1';
   const popupImg = popup ? `<img class="popup" src="data:image/png;base64,${popup}" alt="">` : '';
   const pageImg = page ? `<img class="pageimg" src="data:image/png;base64,${page}" alt="">` : `
       <div class="ph" style="width:46%;height:22px;margin:34px 0 0 40px"></div>
@@ -216,7 +208,7 @@ function browserMock({ url, popup, page, dark = false, wide = false }) {
     .page { position: absolute; top: 84px; left: 0; right: 0; bottom: 0; }
     .ph { background: ${placeholder}; border-radius: 4px; }
     .pageimg { display: block; width: ${w}px; }
-    .popup { position: absolute; top: 88px; right: 52px; width: 380px; border-radius: 6px; box-shadow: 0 12px 30px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,0,0,0.08); }
+    .popup { position: absolute; top: 88px; right: 52px; width: 380px; border-radius: 6px; box-shadow: 0 12px 30px rgba(0,0,0,0.35), 0 0 0 1px ${dark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.08)'}; }
   </style>
   <div class="win">
     <div class="tabs"><div class="dots"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></div><div class="tab">${page ? `<img src="${iconData}" alt="">` : ''}<span>${url}</span></div></div>

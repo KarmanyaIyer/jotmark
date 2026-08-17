@@ -43,7 +43,7 @@ try {
     await page.screenshot({ path: out, omitBackground: true, clip: { x: 0, y: 0, width: size, height: size } });
     console.log('wrote', path.relative(ROOT, out));
   }
-  // Store listing icon: the store asks for 96px of artwork centred on a
+  // Store listing icon: the store asks for 96px of artwork centered on a
   // transparent 128px canvas.
   await page.setViewport({ width: 128, height: 128, deviceScaleFactor: 1 });
   await page.setContent(`<!doctype html><html><head><style>html,body{margin:0;background:transparent}body{display:grid;place-items:center;width:128px;height:128px}svg{display:block;width:96px;height:96px}</style></head><body>${master}</body></html>`);

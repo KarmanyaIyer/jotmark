@@ -9,7 +9,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   fontSize: 'medium',         // small | medium | large | xlarge
   noteFont: 'system',         // system | serif | mono
   density: 'comfortable',     // comfortable | compact
-  // Behaviour
+  // Behavior
   defaultScope: 'domain',     // domain | page
   rememberScope: true,        // reopen a site in the scope you last used there
   submitKey: 'mod-enter',     // mod-enter | enter

@@ -27,7 +27,7 @@ Notes for every website. A Chrome extension that keeps timestamped notes attache
 | Appearance | System, light, or dark theme. Five marker colors. Four font sizes. System, serif, or monospace note font. Comfortable or compact density. |
 | Notes | Add with Enter or Ctrl/Cmd Enter. Default scope. Remember the last scope per site. Newest or oldest first. Relative or absolute timestamps, 12 or 24 hour clock. Confirm before deleting. Turn web addresses into links. Checklists on or off. Show the page path in the header. |
 | Page matching | Ignore the query string. Treat `#fragments` as separate pages. Group subdomains under the main domain. Common tracking parameters (`utm_*`, `fbclid`, and friends) are always ignored. |
-| Data | Export JSON. Import with merge or replace. Reset settings. Delete all notes. |
+| Data | Storage usage. Export JSON. Import with merge or replace. Reset settings. Delete all notes. |
 
 The default keyboard shortcut to open the popup is `Alt+Shift+J`; change it at `chrome://extensions/shortcuts`.
 

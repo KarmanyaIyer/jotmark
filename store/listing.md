@@ -54,7 +54,7 @@ Open source under the MIT license: https://github.com/KarmanyaIyer/jotmark
 
 **Store icon**: `store/icon-128.png` (128x128 PNG, transparent background)
 
-**Screenshots** (1280x800 PNG, up to 5): `store/screenshots/01-popup.png` through `05-settings.png`
+**Screenshots** (1280x800 PNG, up to 5): `store/screenshots/01-popup.png` through `05-private.png`
 
 **Small promo tile** (440x280 PNG, required): `store/promo-small-440x280.png`
 

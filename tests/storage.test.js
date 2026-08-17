@@ -33,7 +33,7 @@ test('add, read, update and delete notes', async () => {
   assert.deepEqual(await store.getNotes('domain', 'github.com'), []);
 });
 
-test('empty notes are rejected and line endings are normalised', async () => {
+test('empty notes are rejected and line endings are normalized', async () => {
   const store = createStore(createMemoryArea());
   await assert.rejects(store.addNote('domain', 'a.com', '   \n '));
   const note = await store.addNote('page', 'https://a.com/x', 'a\r\nb');
@@ -156,7 +156,7 @@ test('scope memory remembers per domain and is capped', async () => {
   assert.equal(await store.getRememberedScope('site319.com'), 'domain');
 });
 
-test('settings sanitise unknown values and keep known ones', () => {
+test('settings sanitize unknown values and keep known ones', () => {
   const s = sanitizeSettings({ theme: 'dark', accent: 'neon', confirmDelete: 'yes', extra: 1 });
   assert.equal(s.theme, 'dark');
   assert.equal(s.accent, DEFAULT_SETTINGS.accent);

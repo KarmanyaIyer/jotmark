@@ -25,7 +25,7 @@ export function hasChecklist(text) {
 
 // Flips the item on the given line between open and done. Returns the new
 // text, or null when that line is not an item any more (for example after an
-// external change). "[]" and "[X]" are normalised to "[ ]" and "[x]".
+// external change). "[]" and "[X]" are normalized to "[ ]" and "[x]".
 export function toggleChecklistItem(text, lineIndex) {
   const lines = text.split('\n');
   if (lineIndex < 0 || lineIndex >= lines.length) return null;
