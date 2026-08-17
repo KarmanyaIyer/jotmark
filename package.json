@@ -1,0 +1,14 @@
+{
+  "name": "jotmark",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Chrome extension for keeping timestamped notes per website or per page, stored locally.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/",
+    "check": "node scripts/check.mjs",
+    "package": "node scripts/package.mjs"
+  },
+  "license": "MIT",
+  "author": "Karmanya Iyer"
+}
