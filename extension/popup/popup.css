@@ -1,0 +1,100 @@
+html, body {
+  width: 380px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Hidden until settings are applied so there is no flash of the wrong theme. */
+html:not([data-ready]) body { visibility: hidden; }
+
+.popup {
+  display: flex;
+  flex-direction: column;
+  max-height: 580px;
+  min-height: 160px;
+}
+
+/* Header */
+.site {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: var(--pad-y) var(--pad-x) 0;
+}
+.site-text { min-width: 0; padding-top: 4px; }
+.site-host {
+  font-size: var(--fs-heading);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.site-path {
+  margin-top: 1px;
+  font-size: var(--fs-small);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  direction: rtl;
+  text-align: left;
+}
+.site-path > span { direction: ltr; unicode-bidi: bidi-override; }
+.site-actions { display: flex; gap: 2px; flex-shrink: 0; margin-right: -6px; }
+
+/* Scope switch */
+.scope { margin: var(--pad-y) var(--pad-x) 0; }
+
+/* Composer */
+.composer {
+  display: grid;
+  gap: 6px;
+  padding: var(--pad-y) var(--pad-x) 0;
+}
+.composer textarea {
+  min-height: calc(2 * 1.45em + 14px);
+  max-height: 170px;
+}
+.composer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.hint {
+  font-size: var(--fs-tiny);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Notes */
+.notes {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  margin-top: var(--pad-y);
+  padding: 0 var(--pad-x) var(--pad-y);
+  border-top: 1px solid var(--line);
+  overscroll-behavior: contain;
+}
+.note-list .note:first-child { padding-top: calc(var(--pad-y) + 2px); }
+.note-editor textarea { min-height: 60px; max-height: 200px; }
+
+/* Unsupported page */
+.unsupported {
+  padding: 18px var(--pad-x) 20px;
+}
+.unsupported-title { font-weight: 600; margin-bottom: 4px; }
+.unsupported .muted { font-size: var(--fs-small); }
+.unsupported-actions { display: flex; gap: 8px; margin-top: 14px; }
+
+/* Bottom of list */
+.notes-footer {
+  padding: 8px 0 0;
+  font-size: var(--fs-tiny);
+  color: var(--faint);
+  text-align: center;
+}

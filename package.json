@@ -10,5 +10,8 @@
     "package": "node scripts/package.mjs"
   },
   "license": "MIT",
-  "author": "Karmanya Iyer"
+  "author": "Karmanya Iyer",
+  "devDependencies": {
+    "puppeteer-core": "^25.7.0"
+  }
 }

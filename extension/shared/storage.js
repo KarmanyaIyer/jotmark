@@ -122,6 +122,17 @@ export function createStore(area = globalThis.chrome?.storage?.local) {
       return true;
     },
 
+    // Puts a previously deleted note back with its original id and timestamps.
+    async restoreNote(scope, key, note) {
+      if (!isValidNote(note)) throw new Error('Not a note');
+      const list = await readList(scope, key);
+      if (list.some((n) => n.id === note.id)) return list;
+      list.push({ id: note.id, text: note.text, createdAt: note.createdAt, updatedAt: note.updatedAt });
+      list.sort((a, b) => a.createdAt - b.createdAt);
+      await writeList(scope, key, list);
+      return list;
+    },
+
     // Every note in storage, grouped by the key it is filed under.
     async getAllGroups() {
       const everything = await area.get(null);
