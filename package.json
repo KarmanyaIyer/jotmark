@@ -5,7 +5,7 @@
   "description": "Chrome extension for keeping timestamped notes per website or per page, stored locally.",
   "type": "module",
   "scripts": {
-    "test": "node --test tests/",
+    "test": "node --test tests/*.test.js",
     "check": "node scripts/check.mjs",
     "package": "node scripts/package.mjs"
   },
