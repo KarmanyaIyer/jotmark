@@ -1,12 +1,13 @@
-import { createStore, storageKey } from '../shared/storage.js';
+import { createStore, storageKey, MAX_NOTE_LENGTH } from '../shared/storage.js';
 import { loadSettings, applyAppearance, onSettingsChange } from '../shared/settings.js';
 import { describeUrl } from '../shared/url.js';
 import { pluralize } from '../shared/format.js';
 import { h, clear } from '../shared/dom.js';
 import {
-  noteTextNodes, timeElement, editedBadge, sortNotes, actionButtons, confirmButtons,
-  submitKeyMatcher, editorElement, autogrow, createToast,
+  noteTextNodes, progressBadge, timeElement, editedBadge, sortNotes, actionButtons, confirmButtons,
+  submitKeyMatcher, editorElement, autogrow, createToast, handleChecklistKey,
 } from '../shared/note-view.js';
+import { toggleChecklistItem, toggleMarkerAtCaret, applyEdit } from '../shared/checklist.js';
 
 const store = createStore();
 const isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
@@ -32,6 +33,7 @@ const els = {
   input: document.getElementById('note-input'),
   hint: document.getElementById('hint'),
   addBtn: document.getElementById('btn-add'),
+  checklistBtn: document.getElementById('btn-checklist'),
   notes: document.getElementById('notes'),
   list: document.getElementById('note-list'),
   empty: document.getElementById('empty'),
@@ -82,6 +84,7 @@ async function init() {
   state.notes = await store.getNotesForSite(state.site.domainKey, state.site.pageKey);
   renderHeader();
   renderNotes();
+  await restoreDraft();
   markReady();
   els.input.focus();
 
@@ -217,13 +220,17 @@ function renderNote(note, now) {
       onSave: (value) => saveEdit(note.id, value),
       onCancel: () => cancelEdit(note.id),
       isSubmitKey: state.isSubmitKey,
+      checklists: state.settings.checklists,
       maxPx: EDITOR_MAX_PX,
     }));
     return li;
   }
 
   const text = h('div', { class: 'note-text' }, ...noteTextNodes(note.text, state.settings));
-  const meta = h('div', { class: 'note-meta' }, timeElement(note, state.settings, now), editedBadge(note, state.settings));
+  const meta = h('div', { class: 'note-meta' },
+    timeElement(note, state.settings, now),
+    progressBadge(note.text, state.settings),
+    editedBadge(note, state.settings));
   if (state.confirmingId === note.id) {
     li.classList.add('is-busy');
     meta.append(confirmButtons());
@@ -247,12 +254,21 @@ function wireEvents() {
     addNote();
   });
 
-  els.input.addEventListener('input', () => autogrow(els.input, COMPOSER_MAX_PX));
+  els.input.addEventListener('input', () => {
+    autogrow(els.input, COMPOSER_MAX_PX);
+    scheduleDraftSave();
+  });
   els.input.addEventListener('keydown', (event) => {
     if (state.isSubmitKey(event)) {
       event.preventDefault();
       addNote();
+      return;
     }
+    handleChecklistKey(els.input, event, state.isSubmitKey, state.settings.checklists);
+  });
+  els.checklistBtn.addEventListener('click', () => {
+    applyEdit(els.input, toggleMarkerAtCaret(els.input.value, els.input.selectionStart));
+    autogrow(els.input, COMPOSER_MAX_PX);
   });
 
   els.list.addEventListener('click', (event) => {
@@ -265,6 +281,7 @@ function wireEvents() {
     if (!note) return;
     const viaKeyboard = event.detail === 0;
     switch (button.dataset.action) {
+      case 'toggle-task': toggleTask(note, Number(button.dataset.line), viaKeyboard); break;
       case 'copy': copyNote(note); break;
       case 'edit': startEdit(id); break;
       case 'delete': requestDelete(note, viaKeyboard); break;
@@ -305,6 +322,7 @@ function wireNavigation() {
 
 function updateHint() {
   const mod = isMac ? '⌘' : 'Ctrl';
+  els.checklistBtn.hidden = !state.settings.checklists;
   clear(els.hint);
   if (state.settings.submitKey === 'enter') {
     els.hint.append(h('kbd', {}, 'Enter'), ' to add, ', h('kbd', {}, 'Shift'), ' ', h('kbd', {}, 'Enter'), ' for a new line');
@@ -315,15 +333,65 @@ function updateHint() {
 
 async function setScope(scope) {
   if (scope === state.scope) return;
+  await saveDraftNow();
   state.scope = scope;
   state.editingId = null;
   state.editingDraft = '';
   state.confirmingId = null;
   renderHeader();
   renderNotes();
+  await restoreDraft();
   els.input.focus();
   if (state.settings.rememberScope) {
     await store.rememberScope(state.site.domainKey, scope);
+  }
+}
+
+// Composer drafts survive the popup closing (clicking the page closes it) for
+// the rest of the browser session. They live in session storage under the
+// current scope key and are removed once the note is added.
+let draftTimer = null;
+
+function draftKey() {
+  return `draft:${state.scope}:${currentKey()}`;
+}
+
+function scheduleDraftSave() {
+  clearTimeout(draftTimer);
+  draftTimer = setTimeout(saveDraftNow, 150);
+}
+
+async function saveDraftNow() {
+  clearTimeout(draftTimer);
+  if (!chrome.storage.session || !state.site || !state.site.supported) return;
+  const key = draftKey();
+  try {
+    if (els.input.value.trim()) await chrome.storage.session.set({ [key]: els.input.value });
+    else await chrome.storage.session.remove(key);
+  } catch (error) {
+    console.warn('Could not save the draft', error);
+  }
+}
+
+async function restoreDraft() {
+  if (!chrome.storage.session) return;
+  try {
+    const key = draftKey();
+    const result = await chrome.storage.session.get(key);
+    els.input.value = typeof result[key] === 'string' ? result[key] : '';
+    autogrow(els.input, COMPOSER_MAX_PX);
+  } catch (error) {
+    console.warn('Could not restore the draft', error);
+  }
+}
+
+async function clearDraft() {
+  clearTimeout(draftTimer);
+  if (!chrome.storage.session) return;
+  try {
+    await chrome.storage.session.remove(draftKey());
+  } catch (error) {
+    console.warn('Could not clear the draft', error);
   }
 }
 
@@ -343,6 +411,7 @@ async function addNote() {
     currentNotes().push(note);
     els.input.value = '';
     autogrow(els.input, COMPOSER_MAX_PX);
+    await clearDraft();
     renderNotes();
     if (state.settings.sortOrder === 'newest') els.notes.scrollTop = 0;
     else els.notes.scrollTop = els.notes.scrollHeight;
@@ -399,6 +468,39 @@ async function saveEdit(id, text) {
     state.editingDraft = '';
     renderNotes();
     focusNoteAction(id);
+  } catch (error) {
+    console.error(error);
+    toast.show('Could not save the change');
+  } finally {
+    state.busy = false;
+  }
+}
+
+// Flips one checklist item. The change is an ordinary edit of the note text.
+async function toggleTask(note, lineIndex, viaKeyboard = false) {
+  if (state.busy) return;
+  const next = toggleChecklistItem(note.text, lineIndex);
+  if (next === null) {
+    // The note changed under us (another window edited it); show what is stored now.
+    state.notes = await store.getNotesForSite(state.site.domainKey, state.site.pageKey);
+    renderNotes();
+    return;
+  }
+  if (next.length > MAX_NOTE_LENGTH) {
+    toast.show('This note is too long to change');
+    return;
+  }
+  state.busy = true;
+  try {
+    const updated = await store.updateNote(state.scope, currentKey(), note.id, next);
+    const list = currentNotes();
+    const index = list.findIndex((n) => n.id === note.id);
+    if (updated && index !== -1) list[index] = updated;
+    renderNotes();
+    if (viaKeyboard) {
+      const box = els.list.querySelector(`[data-id="${CSS.escape(note.id)}"] [data-line="${lineIndex}"]`);
+      if (box) box.focus();
+    }
   } catch (error) {
     console.error(error);
     toast.show('Could not save the change');
@@ -497,23 +599,29 @@ async function handleSettingsChange(next) {
   if (!state.site || !state.site.supported) return;
   const site = describeUrl(state.tabUrl, next);
   if (site.supported && (site.domainKey !== state.site.domainKey || site.pageKey !== state.site.pageKey)) {
+    await saveDraftNow();
     state.site = site;
     state.notes = await store.getNotesForSite(site.domainKey, site.pageKey);
     state.editingId = null;
     state.editingDraft = '';
     state.confirmingId = null;
+    await restoreDraft();
   }
   renderHeader();
   renderNotes();
 }
 
-// Storage changes made from another extension page while the popup is open.
+// Storage changes while the popup is open. Our own writes also arrive here, so
+// storage is read again and compared with what is already on screen; only a
+// real difference triggers a re-render (which would otherwise drop focus).
 async function handleExternalChange(changes, areaName) {
   if (areaName !== 'local' || !state.site || !state.site.supported) return;
   const dk = storageKey('domain', state.site.domainKey);
   const pk = storageKey('page', state.site.pageKey);
   if (!(dk in changes) && !(pk in changes)) return;
-  state.notes = await store.getNotesForSite(state.site.domainKey, state.site.pageKey);
+  const fresh = await store.getNotesForSite(state.site.domainKey, state.site.pageKey);
+  if (JSON.stringify(fresh) === JSON.stringify(state.notes)) return;
+  state.notes = fresh;
   if (state.editingId && !currentNotes().some((n) => n.id === state.editingId)) {
     state.editingId = null;
     state.editingDraft = '';

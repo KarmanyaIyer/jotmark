@@ -31,6 +31,9 @@ Switch between notes for the whole domain (everything on github.com) and notes f
 TIMESTAMPED, EDITABLE, SEARCHABLE
 Every note is stamped with the time it was written. Edit, copy, or delete notes in place, with an undo if you change your mind. The All notes page shows everything you have written, grouped by site, with search across notes and site names.
 
+CHECKLISTS
+Start a line with [ ] and it becomes a checkbox you can tick right in the popup. Enter continues the list, and notes with several items show how many are done. Handy for "cancel the trial", "reply to the seller", "rotate this key".
+
 STAYS OUT OF THE WAY
 Jotmark does nothing until you open it. It never injects scripts or styles into pages, never reads page content, and never runs in the background. The only thing it looks at is the address of the tab you clicked it on.
 

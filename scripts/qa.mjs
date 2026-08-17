@@ -135,7 +135,30 @@ try {
     equal(await count(popup, '.note'), 2);
     await popup.$eval('#note-input', (el) => { el.value = ''; });
   });
+  await check('an unfinished note survives closing and reopening the popup', async () => {
+    await popup.type('#note-input', 'half written');
+    await sleep(250);
+    await popup.close();
+    popup = await openPopupFor(browser, extensionId, site);
+    popup.on('pageerror', (e) => pageErrors.push(`popup: ${e.message}`));
+    equal(await popup.$eval('#note-input', (el) => el.value), 'half written');
+    await popup.type('#note-input', ' and finished');
+    await clickReal(popup, '#btn-add');
+    await sleep(150);
+    equal(await count(popup, '.note'), 3);
+    await popup.close();
+    popup = await openPopupFor(browser, extensionId, site);
+    popup.on('pageerror', (e) => pageErrors.push(`popup: ${e.message}`));
+    equal(await popup.$eval('#note-input', (el) => el.value), '', 'draft cleared after adding');
+    await popup.hover('.note:first-child');
+    await clickReal(popup, '.note:first-child [data-action="delete"]');
+    await popup.waitForSelector('[data-action="confirm-delete"]');
+    await clickReal(popup, '[data-action="confirm-delete"]');
+    await sleep(150);
+    equal(await count(popup, '.note'), 2);
+  });
   await check('the add button does not keep a focus ring after a mouse click', async () => {
+    await clickReal(popup, '#btn-add');
     const ring = await popup.evaluate(() => document.getElementById('btn-add').matches(':focus-visible'));
     equal(ring, false, 'focus ring on button');
   });
@@ -376,6 +399,107 @@ try {
     await o.evaluate(() => chrome.storage.local.remove('d:bad.example.com'));
     await o.close();
   });
+
+  group('Popup: checklists');
+  await check('enter continues a checklist in the composer and the note renders boxes', async () => {
+    popup = await openPopupFor(browser, extensionId, 'https://tasks.example.com/');
+    popup.on('pageerror', (e) => pageErrors.push(`popup: ${e.message}`));
+    await popup.type('#note-input', 'Before renewing');
+    await popup.keyboard.press('Enter');
+    await popup.type('#note-input', '[ ] ask about invoice');
+    await popup.keyboard.press('Enter');
+    await popup.type('#note-input', 'check seats');
+    equal(await popup.$eval('#note-input', (el) => el.value), 'Before renewing\n[ ] ask about invoice\n[ ] check seats');
+    await pressModEnter(popup);
+    await sleep(150);
+    equal(await count(popup, '.note'), 1);
+    equal(await count(popup, '.note button[role="checkbox"]'), 2);
+    equal(await count(popup, '.note [aria-checked="true"]'), 0);
+    equal(await text(popup, '.note .note-progress'), '0 of 2 done');
+  });
+  await check('clicking a box marks the item done in storage and back', async () => {
+    await clickReal(popup, '.note [data-line="1"]');
+    await sleep(150);
+    equal(await popup.$eval('.note [data-line="1"]', (el) => el.getAttribute('aria-checked')), 'true');
+    const strike = await popup.$eval('.note .task.is-done .task-text', (el) => getComputedStyle(el).textDecorationLine);
+    assert(strike.includes('line-through'), `expected line-through, got ${strike}`);
+    const stored = await popup.evaluate(async () => {
+      const { createStore } = await import(chrome.runtime.getURL('shared/storage.js'));
+      return (await createStore().getNotes('domain', 'tasks.example.com'))[0].text;
+    });
+    equal(stored, 'Before renewing\n[x] ask about invoice\n[ ] check seats');
+    equal(await text(popup, '.note .note-progress'), '1 of 2 done');
+    await clickReal(popup, '.note [data-line="1"]');
+    await sleep(150);
+    equal(await popup.$eval('.note [data-line="1"]', (el) => el.getAttribute('aria-checked')), 'false');
+  });
+  await check('space on a focused box toggles it and keeps focus there', async () => {
+    await popup.focus('.note [data-line="2"]');
+    await popup.keyboard.press('Space');
+    await sleep(150);
+    equal(await popup.$eval('.note [data-line="2"]', (el) => el.getAttribute('aria-checked')), 'true');
+    equal(await popup.evaluate(() => document.activeElement.dataset.line), '2');
+    await popup.keyboard.press('Space');
+    await sleep(120);
+  });
+  await check('the composer button inserts and removes a marker, and Enter on an empty item ends the list', async () => {
+    await popup.focus('#note-input');
+    await clickReal(popup, '#btn-checklist');
+    equal(await popup.$eval('#note-input', (el) => el.value), '[ ] ');
+    equal(await popup.$eval('#note-input', (el) => el.selectionStart), 4);
+    await popup.keyboard.press('Enter');
+    equal(await popup.$eval('#note-input', (el) => el.value), '', 'empty item removed on Enter');
+    await popup.type('#note-input', 'plain');
+    await clickReal(popup, '#btn-checklist');
+    equal(await popup.$eval('#note-input', (el) => el.value), '[ ] plain');
+    await clickReal(popup, '#btn-checklist');
+    equal(await popup.$eval('#note-input', (el) => el.value), 'plain');
+    await popup.$eval('#note-input', (el) => { el.value = ''; });
+  });
+  await check('edit mode shows the raw markers and plain notes render without line wrappers', async () => {
+    await popup.hover('.note');
+    await clickReal(popup, '.note [data-action="edit"]');
+    await popup.waitForSelector('.note-editor textarea');
+    const raw = await popup.$eval('.note-editor textarea', (el) => el.value);
+    assert(raw.includes('[ ] check seats'), 'raw marker in editor');
+    await popup.keyboard.press('Escape');
+    await sleep(80);
+    await popup.type('#note-input', 'A plain note with [ ] in the middle');
+    await pressModEnter(popup);
+    await sleep(150);
+    equal(await count(popup, '.note:first-child .line'), 0);
+    equal(await count(popup, '.note:first-child button[role="checkbox"]'), 0);
+  });
+  await check('turning the setting off shows markers as text and hides the composer button', async () => {
+    await popup.evaluate(async () => {
+      const { saveSettings } = await import(chrome.runtime.getURL('shared/settings.js'));
+      await saveSettings({ checklists: false });
+    });
+    await sleep(150);
+    equal(await count(popup, 'button[role="checkbox"]'), 0);
+    equal(await popup.$eval('#btn-checklist', (el) => el.hidden), true);
+    assert((await popup.$$eval('.note-text', (els) => els.map((e) => e.textContent).join('|'))).includes('[ ] check seats'), 'marker shown as text');
+    await popup.evaluate(async () => {
+      const { resetSettings } = await import(chrome.runtime.getURL('shared/settings.js'));
+      await resetSettings();
+    });
+    await sleep(120);
+    equal(await count(popup, 'button[role="checkbox"]'), 2);
+  });
+  await check('the all notes page renders boxes, toggles them, and highlights inside items', async () => {
+    const o = await openOptions(browser, extensionId, '#notes');
+    o.on('pageerror', (e) => pageErrors.push(`options: ${e.message}`));
+    equal(await count(o, '#groups button[role="checkbox"]'), 2);
+    await clickReal(o, '#groups [data-line="1"]');
+    await sleep(200);
+    equal(await o.$eval('#groups [data-line="1"]', (el) => el.getAttribute('aria-checked')), 'true');
+    await o.type('#search', 'invoice');
+    await sleep(200);
+    equal(await count(o, '#groups .task mark'), 1);
+    await o.close();
+  });
+  await popup.evaluate(() => chrome.storage.local.remove('d:tasks.example.com'));
+  await popup.close();
 
   group('Popup: unsupported pages');
   for (const [url, label] of [['chrome://extensions', 'chrome://'], ['about:blank', 'about:blank'], ['file:///tmp/a.html', 'file://'], ['', 'empty url']]) {

@@ -414,6 +414,38 @@ select.field {
   white-space: nowrap;
 }
 .note-edited { color: var(--muted); }
+.note-progress { color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* Checklist lines inside a note */
+.note-text .line { min-height: 1lh; }
+.note-text .task {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.task-box {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  margin-top: calc((1.45em - 15px) / 2);
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  background: var(--paper);
+  color: var(--accent-ink);
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+.task-box svg { width: 11px; height: 11px; opacity: 0; transition: opacity 120ms ease; }
+button.task-box:hover { background: var(--paper-2); }
+.task.is-done .task-box { background: var(--accent); border-color: var(--line-strong); }
+.task.is-done .task-box svg { opacity: 1; }
+.task.is-done .task-text { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--faint); }
+.task-text { min-width: 0; overflow-wrap: anywhere; }
+:root[data-density="compact"] .task-box { width: 14px; height: 14px; margin-top: calc((1.45em - 14px) / 2); }
 .note-actions {
   display: inline-flex;
   gap: 10px;

@@ -3,15 +3,16 @@
 import { h } from './dom.js';
 import { MAX_NOTE_LENGTH } from './storage.js';
 import { formatTimestamp, formatAbsolute, splitLinks, splitMatches } from './format.js';
+import { parseChecklistLine, hasChecklist, checklistProgress, continueChecklist, applyEdit, isNewlineKey } from './checklist.js';
 
 function highlighted(text, query) {
   if (!query) return [text];
   return splitMatches(text, query).map((part) => (part.type === 'match' ? h('mark', {}, part.value) : part.value));
 }
 
-// Note body as DOM nodes: URLs become links when enabled, and search matches
-// are wrapped in <mark>. User text only ever goes through textContent.
-export function noteTextNodes(text, settings, query = '') {
+// Inline nodes for a run of text: URLs become links when enabled, and search
+// matches are wrapped in <mark>. User text only ever goes through textContent.
+function inlineNodes(text, settings, query) {
   if (!settings.linkify) return highlighted(text, query);
   const nodes = [];
   for (const part of splitLinks(text)) {
@@ -22,6 +23,58 @@ export function noteTextNodes(text, settings, query = '') {
     }
   }
   return nodes;
+}
+
+function checkIcon() {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 12 12');
+  svg.setAttribute('aria-hidden', 'true');
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('d', 'M2.5 6.5 5 9l4.5-6');
+  path.setAttribute('fill', 'none');
+  path.setAttribute('stroke', 'currentColor');
+  path.setAttribute('stroke-width', '1.8');
+  path.setAttribute('stroke-linecap', 'round');
+  path.setAttribute('stroke-linejoin', 'round');
+  svg.append(path);
+  return svg;
+}
+
+// Notes that contain checklist items render one block per line, with a
+// checkbox button in front of each item. The button carries data-line so the
+// click handler knows which line to flip.
+function checklistNodes(text, settings, query) {
+  return text.split('\n').map((line, index) => {
+    const item = parseChecklistLine(line);
+    if (!item) return h('div', { class: 'line' }, ...inlineNodes(line, settings, query));
+    const label = item.body.trim() || 'Empty item';
+    const box = h('button', {
+      type: 'button',
+      class: 'task-box',
+      role: 'checkbox',
+      'aria-checked': item.checked ? 'true' : 'false',
+      'aria-label': label,
+      title: item.checked ? 'Mark as not done' : 'Mark as done',
+      'data-action': 'toggle-task',
+      'data-line': String(index),
+    }, checkIcon());
+    const body = h('span', { class: 'task-text' }, ...inlineNodes(item.body, settings, query));
+    return h('div', { class: item.checked ? 'line task is-done' : 'line task' }, box, body);
+  });
+}
+
+// Note body as DOM nodes.
+export function noteTextNodes(text, settings, query = '') {
+  if (settings.checklists && hasChecklist(text)) return checklistNodes(text, settings, query);
+  return inlineNodes(text, settings, query);
+}
+
+// "1 of 3 done" for notes with at least two checklist items, otherwise null.
+export function progressBadge(text, settings) {
+  if (!settings.checklists) return null;
+  const { done, total } = checklistProgress(text);
+  if (total < 2) return null;
+  return h('span', { class: 'note-progress' }, `${done} of ${total} done`);
 }
 
 export function timeElement(note, settings, now = Date.now()) {
@@ -82,9 +135,21 @@ export function autogrow(textarea, maxPx) {
   textarea.style.height = `${Math.min(textarea.scrollHeight + 2, maxPx)}px`;
 }
 
+// Continues a checklist when a plain newline is typed on an item line.
+// Returns true when it handled the key.
+export function handleChecklistKey(textarea, event, isSubmitKey, enabled) {
+  if (!enabled || !isNewlineKey(event, isSubmitKey)) return false;
+  if (textarea.selectionStart !== textarea.selectionEnd) return false;
+  const edit = continueChecklist(textarea.value, textarea.selectionStart);
+  if (!edit) return false;
+  event.preventDefault();
+  applyEdit(textarea, edit);
+  return true;
+}
+
 // Inline editor for a note. The caller keeps the draft (so re-renders do not
 // lose typed text) and decides what Save and Cancel do.
-export function editorElement({ value, onInput, onSave, onCancel, isSubmitKey, maxPx = 200 }) {
+export function editorElement({ value, onInput, onSave, onCancel, isSubmitKey, checklists = false, maxPx = 200 }) {
   const textarea = h('textarea', { class: 'field', rows: '3', maxlength: String(MAX_NOTE_LENGTH), 'aria-label': 'Edit note' });
   textarea.value = value;
   textarea.addEventListener('input', () => {
@@ -99,6 +164,8 @@ export function editorElement({ value, onInput, onSave, onCancel, isSubmitKey, m
     } else if (isSubmitKey(event)) {
       event.preventDefault();
       onSave(textarea.value);
+    } else {
+      handleChecklistKey(textarea, event, isSubmitKey, checklists);
     }
   });
   queueMicrotask(() => {

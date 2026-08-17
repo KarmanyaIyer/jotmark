@@ -73,6 +73,13 @@ html:not([data-ready]) body { visibility: hidden; }
   justify-content: space-between;
   gap: 8px;
 }
+.composer-tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  margin-left: -6px;
+}
 .hint {
   font-size: var(--fs-tiny);
   white-space: nowrap;

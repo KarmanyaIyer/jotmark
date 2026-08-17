@@ -9,8 +9,10 @@ Notes for every website. A Chrome extension that keeps timestamped notes attache
 - Click the toolbar icon on any site and write a note. It is saved with a timestamp and is there again the next time you open Jotmark on that site.
 - Switch between domain notes (everything on `github.com`) and page notes (only `github.com/settings/keys`). The counts on the switch show where you have already written something, and Jotmark can remember which scope you last used on each site.
 - Edit, copy, and delete notes in place. Deleting offers an undo.
+- Checklists: start a line with `[ ]` and it becomes a checkbox you can tick from the popup. Enter continues the list, `[x]` marks an item done, and notes with several items show how many are done. The state is plain text, so exports and other tools that use the same convention just work.
 - The All notes page shows everything grouped by site, with search across notes and site names.
 - Export and import your notes as JSON.
+- A half written note is kept for the rest of the browser session if the popup closes before you add it.
 
 ## What it does not do
 
@@ -23,7 +25,7 @@ Notes for every website. A Chrome extension that keeps timestamped notes attache
 | Group | Options |
 | --- | --- |
 | Appearance | System, light, or dark theme. Five marker colors. Four font sizes. System, serif, or monospace note font. Comfortable or compact density. |
-| Notes | Add with Enter or Ctrl/Cmd Enter. Default scope. Remember the last scope per site. Newest or oldest first. Relative or absolute timestamps, 12 or 24 hour clock. Confirm before deleting. Turn web addresses into links. Show the page path in the header. |
+| Notes | Add with Enter or Ctrl/Cmd Enter. Default scope. Remember the last scope per site. Newest or oldest first. Relative or absolute timestamps, 12 or 24 hour clock. Confirm before deleting. Turn web addresses into links. Checklists on or off. Show the page path in the header. |
 | Page matching | Ignore the query string. Treat `#fragments` as separate pages. Group subdomains under the main domain. Common tracking parameters (`utm_*`, `fbclid`, and friends) are always ignored. |
 | Data | Export JSON. Import with merge or replace. Reset settings. Delete all notes. |
 

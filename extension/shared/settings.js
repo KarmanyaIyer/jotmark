@@ -19,6 +19,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   confirmDelete: true,
   showPath: true,             // show the page path under the host in the popup header
   linkify: true,              // turn URLs inside notes into links
+  checklists: true,           // "[ ]" at the start of a line becomes a checkbox
   // URL handling
   ignoreQuery: false,         // treat ?a=1 and ?a=2 as the same page
   keepFragment: false,        // treat #section-1 and #section-2 as different pages

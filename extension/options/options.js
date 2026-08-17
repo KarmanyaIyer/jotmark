@@ -1,12 +1,13 @@
-import { createStore, ImportError } from '../shared/storage.js';
+import { createStore, ImportError, MAX_NOTE_LENGTH } from '../shared/storage.js';
 import { loadSettings, saveSettings, resetSettings, applyAppearance, onSettingsChange, DEFAULT_SETTINGS } from '../shared/settings.js';
 import { formatBytes, formatRelative, formatAbsolute, pluralize } from '../shared/format.js';
 import { labelForKey } from '../shared/url.js';
 import { h, clear } from '../shared/dom.js';
 import {
-  noteTextNodes, timeElement, editedBadge, sortNotes, actionButtons, confirmButtons,
+  noteTextNodes, progressBadge, timeElement, editedBadge, sortNotes, actionButtons, confirmButtons,
   submitKeyMatcher, editorElement, createToast,
 } from '../shared/note-view.js';
+import { toggleChecklistItem } from '../shared/checklist.js';
 
 const store = createStore();
 const isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
@@ -91,7 +92,7 @@ async function init() {
     if (area !== 'local') return;
     const touchedNotes = Object.keys(changes).some((k) => k.startsWith('d:') || k.startsWith('p:'));
     if (touchedNotes) {
-      refreshNotes();
+      refreshNotes({ onlyIfChanged: true });
       refreshStorageSummary();
     }
   });
@@ -188,14 +189,18 @@ function updatePreview() {
 
 // All notes view
 
-async function refreshNotes() {
+// onlyIfChanged: used for storage change events, which also fire for this
+// page's own writes; skip the re-render (and the focus loss) when nothing differs.
+async function refreshNotes({ onlyIfChanged = false } = {}) {
+  let next;
   try {
-    const groups = await store.getAllGroups();
-    state.groups = groupBySite(groups);
+    next = groupBySite(await store.getAllGroups());
   } catch (error) {
     console.error('Could not read notes', error);
-    state.groups = [];
+    next = [];
   }
+  if (onlyIfChanged && JSON.stringify(next) === JSON.stringify(state.groups)) return;
+  state.groups = next;
   renderGroups();
 }
 
@@ -298,13 +303,17 @@ function renderEntry(entry, query, now) {
       onSave: (value) => saveEdit(entry, value),
       onCancel: () => cancelBusy(entry),
       isSubmitKey: state.isSubmitKey,
+      checklists: state.settings.checklists,
       maxPx: EDITOR_MAX_PX,
     }));
     return li;
   }
 
   const text = h('div', { class: 'note-text' }, ...noteTextNodes(note.text, state.settings, query));
-  const meta = h('div', { class: 'note-meta' }, timeElement(note, state.settings, now), editedBadge(note, state.settings));
+  const meta = h('div', { class: 'note-meta' },
+    timeElement(note, state.settings, now),
+    progressBadge(note.text, state.settings),
+    editedBadge(note, state.settings));
   if (isSame(state.confirming, entry)) {
     li.classList.add('is-busy');
     meta.append(confirmButtons());
@@ -361,6 +370,9 @@ function wireNotesView() {
     const entry = li && findEntry(li);
     if (!entry) return;
     switch (button.dataset.action) {
+      case 'toggle-task':
+        await toggleTask(entry, Number(button.dataset.line), event.detail === 0);
+        break;
       case 'copy':
         try {
           await navigator.clipboard.writeText(entry.note.text);
@@ -417,6 +429,33 @@ function findRef(ref) {
     if (found) return found;
   }
   return null;
+}
+
+async function toggleTask(entry, lineIndex, viaKeyboard) {
+  if (state.busy) return;
+  const next = toggleChecklistItem(entry.note.text, lineIndex);
+  if (next === null) {
+    await refreshNotes();
+    return;
+  }
+  if (next.length > MAX_NOTE_LENGTH) {
+    toast.show('This note is too long to change');
+    return;
+  }
+  state.busy = true;
+  try {
+    await store.updateNote(entry.scope, entry.key, entry.note.id, next);
+    await refreshNotes();
+    if (viaKeyboard) {
+      const box = els.groups.querySelector(`[data-id="${CSS.escape(entry.note.id)}"] [data-line="${lineIndex}"]`);
+      if (box) box.focus();
+    }
+  } catch (error) {
+    console.error(error);
+    toast.show('Could not save the change');
+  } finally {
+    state.busy = false;
+  }
 }
 
 function cancelBusy(entry) {

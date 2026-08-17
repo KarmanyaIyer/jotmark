@@ -47,7 +47,15 @@
         <label class="sr-only" for="note-input">New note</label>
         <textarea class="field" id="note-input" rows="2" placeholder="Write a note" maxlength="20000"></textarea>
         <div class="composer-row">
-          <span class="hint muted" id="hint"></span>
+          <div class="composer-tools">
+            <button type="button" class="icon-btn" id="btn-checklist" title="Add a checkbox" aria-label="Add a checkbox">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="2.5" y="2.5" width="11" height="11" rx="2"/>
+                <path d="M5.2 8.2 7.2 10.2 10.9 5.8"/>
+              </svg>
+            </button>
+            <span class="hint muted" id="hint"></span>
+          </div>
           <button type="submit" class="btn btn-primary" id="btn-add">Add note</button>
         </div>
       </form>
