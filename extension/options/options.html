@@ -1,2 +1,302 @@
 <!doctype html>
-<html lang="en" data-theme="system"><head><meta charset="utf-8"><title>Jotmark settings</title></head><body>placeholder</body></html>
+<html lang="en" data-theme="system" data-accent="yellow" data-font-size="medium" data-note-font="system" data-density="comfortable">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Jotmark</title>
+  <link rel="icon" href="../icons/icon32.png">
+  <link rel="stylesheet" href="../shared/theme.css">
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div class="page">
+    <header class="topbar">
+      <a class="brand" href="#notes">
+        <img src="../icons/icon32.png" width="20" height="20" alt="">
+        <span>Jotmark</span>
+      </a>
+      <span class="version muted" id="version"></span>
+    </header>
+
+    <div class="layout">
+      <nav class="sidenav" aria-label="Sections">
+        <a href="#notes" data-view="notes">All notes</a>
+        <a href="#settings" data-view="settings">Settings</a>
+        <a href="#about" data-view="about">About</a>
+      </nav>
+
+      <main class="content">
+        <!-- All notes -->
+        <section class="view" id="view-notes" hidden>
+          <div class="view-head">
+            <h1>All notes</h1>
+            <p class="muted" id="notes-summary"></p>
+          </div>
+          <div class="search-row">
+            <label class="sr-only" for="search">Search notes</label>
+            <input class="field" type="search" id="search" placeholder="Search notes and sites" autocomplete="off" spellcheck="false">
+          </div>
+          <div id="groups"></div>
+          <p class="empty" id="notes-empty" hidden></p>
+        </section>
+
+        <!-- Settings -->
+        <section class="view" id="view-settings" hidden>
+          <div class="view-head">
+            <h1>Settings</h1>
+            <p class="muted">Changes save as you make them.</p>
+          </div>
+
+          <h2 class="section-title" id="appearance">Appearance</h2>
+          <div class="card">
+            <div class="row">
+              <div class="row-text">
+                <span class="row-title" id="lbl-theme">Theme</span>
+              </div>
+              <div class="segmented seg-fixed" role="radiogroup" aria-labelledby="lbl-theme">
+                <label><input type="radio" name="theme" value="system" data-setting="theme"><span>System</span></label>
+                <label><input type="radio" name="theme" value="light" data-setting="theme"><span>Light</span></label>
+                <label><input type="radio" name="theme" value="dark" data-setting="theme"><span>Dark</span></label>
+              </div>
+            </div>
+            <div class="row">
+              <div class="row-text">
+                <span class="row-title" id="lbl-accent">Marker color</span>
+                <p class="row-desc">Used for the selected scope, search matches, and focus.</p>
+              </div>
+              <div class="swatches" role="radiogroup" aria-labelledby="lbl-accent">
+                <label class="swatch" data-accent="yellow" title="Yellow"><input type="radio" name="accent" value="yellow" data-setting="accent"><span></span><span class="sr-only">Yellow</span></label>
+                <label class="swatch" data-accent="pink" title="Pink"><input type="radio" name="accent" value="pink" data-setting="accent"><span></span><span class="sr-only">Pink</span></label>
+                <label class="swatch" data-accent="green" title="Green"><input type="radio" name="accent" value="green" data-setting="accent"><span></span><span class="sr-only">Green</span></label>
+                <label class="swatch" data-accent="blue" title="Blue"><input type="radio" name="accent" value="blue" data-setting="accent"><span></span><span class="sr-only">Blue</span></label>
+                <label class="swatch" data-accent="orange" title="Orange"><input type="radio" name="accent" value="orange" data-setting="accent"><span></span><span class="sr-only">Orange</span></label>
+              </div>
+            </div>
+            <div class="row">
+              <div class="row-text">
+                <span class="row-title" id="lbl-fontSize">Font size</span>
+              </div>
+              <div class="segmented seg-fixed" role="radiogroup" aria-labelledby="lbl-fontSize">
+                <label><input type="radio" name="fontSize" value="small" data-setting="fontSize"><span>Small</span></label>
+                <label><input type="radio" name="fontSize" value="medium" data-setting="fontSize"><span>Medium</span></label>
+                <label><input type="radio" name="fontSize" value="large" data-setting="fontSize"><span>Large</span></label>
+                <label><input type="radio" name="fontSize" value="xlarge" data-setting="fontSize"><span>Extra large</span></label>
+              </div>
+            </div>
+            <div class="row">
+              <div class="row-text">
+                <label class="row-title" for="s-noteFont">Note font</label>
+                <p class="row-desc">Applies to note text and the composer.</p>
+              </div>
+              <select class="field field-sm" id="s-noteFont" data-setting="noteFont">
+                <option value="system">System</option>
+                <option value="serif">Serif</option>
+                <option value="mono">Monospace</option>
+              </select>
+            </div>
+            <div class="row">
+              <div class="row-text">
+                <span class="row-title" id="lbl-density">Density</span>
+              </div>
+              <div class="segmented seg-fixed" role="radiogroup" aria-labelledby="lbl-density">
+                <label><input type="radio" name="density" value="comfortable" data-setting="density"><span>Comfortable</span></label>
+                <label><input type="radio" name="density" value="compact" data-setting="density"><span>Compact</span></label>
+              </div>
+            </div>
+            <div class="row row-preview">
+              <div class="row-text">
+                <span class="row-title">Preview</span>
+              </div>
+              <div class="preview" aria-hidden="true">
+                <ul class="note-list">
+                  <li class="note">
+                    <div class="note-text">Rate limit is 60 requests an hour without a token. Docs live under /rest.</div>
+                    <div class="note-meta"><span class="note-time" id="preview-time">2 hours ago</span></div>
+                  </li>
+                  <li class="note">
+                    <div class="note-text">Ask about the invoice before renewing.</div>
+                    <div class="note-meta"><span class="note-time" id="preview-time-2">yesterday, 4:12 PM</span></div>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <h2 class="section-title" id="behaviour">Notes</h2>
+          <div class="card">
+            <div class="row">
+              <div class="row-text">
+                <label class="row-title" for="s-submitKey">Add a note with</label>
+                <p class="row-desc">With Enter, use Shift Enter for a new line.</p>
+              </div>
+              <select class="field field-sm" id="s-submitKey" data-setting="submitKey">
+                <option value="mod-enter" data-mac="Command Enter" data-other="Ctrl Enter">Ctrl Enter</option>
+                <option value="enter">Enter</option>
+              </select>
+            </div>
+            <div class="row">
+              <div class="row-text">
+                <span class="row-title" id="lbl-defaultScope">Default scope</span>
+                <p class="row-desc">Which notes open first on a site you have not visited before.</p>
+              </div>
+              <div class="segmented seg-fixed" role="radiogroup" aria-labelledby="lbl-defaultScope">
+                <label><input type="radio" name="defaultScope" value="domain" data-setting="defaultScope"><span>Domain</span></label>
+                <label><input type="radio" name="defaultScope" value="page" data-setting="defaultScope"><span>Page</span></label>
+              </div>
+            </div>
+            <div class="row">
+              <div class="row-text">
+                <label class="row-title" for="s-rememberScope">Remember the last scope per site</label>
+                <p class="row-desc">If you switched to page notes on a site, reopen it there next time.</p>
+              </div>
+              <label class="switch"><input type="checkbox" id="s-rememberScope" data-setting="rememberScope"><span class="track"></span></label>
+            </div>
+            <div class="row">
+              <div class="row-text">
+                <label class="row-title" for="s-sortOrder">Order</label>
+              </div>
+              <select class="field field-sm" id="s-sortOrder" data-setting="sortOrder">
+                <option value="newest">Newest first</option>
+                <option value="oldest">Oldest first</option>
+              </select>
+            </div>
+            <div class="row">
+              <div class="row-text">
+                <label class="row-title" for="s-timeFormat">Timestamps</label>
+                <p class="row-desc">Hover a timestamp to see the full date either way.</p>
+              </div>
+              <select class="field field-sm" id="s-timeFormat" data-setting="timeFormat">
+                <option value="relative">Relative (2 hours ago)</option>
+                <option value="absolute">Absolute (Aug 14, 2026, 9:12 AM)</option>
+              </select>
+            </div>
+            <div class="row">
+              <div class="row-text">
+                <span class="row-title" id="lbl-clock">Clock</span>
+              </div>
+              <div class="segmented seg-fixed" role="radiogroup" aria-labelledby="lbl-clock">
+                <label><input type="radio" name="clock" value="12h" data-setting="clock"><span>12 hour</span></label>
+                <label><input type="radio" name="clock" value="24h" data-setting="clock"><span>24 hour</span></label>
+              </div>
+            </div>
+            <div class="row">
+              <div class="row-text">
+                <label class="row-title" for="s-confirmDelete">Confirm before deleting</label>
+                <p class="row-desc">You can undo a delete for a few seconds either way.</p>
+              </div>
+              <label class="switch"><input type="checkbox" id="s-confirmDelete" data-setting="confirmDelete"><span class="track"></span></label>
+            </div>
+            <div class="row">
+              <div class="row-text">
+                <label class="row-title" for="s-linkify">Turn web addresses into links</label>
+              </div>
+              <label class="switch"><input type="checkbox" id="s-linkify" data-setting="linkify"><span class="track"></span></label>
+            </div>
+            <div class="row">
+              <div class="row-text">
+                <label class="row-title" for="s-showPath">Show the page path in the popup header</label>
+                <p class="row-desc">Only in page scope.</p>
+              </div>
+              <label class="switch"><input type="checkbox" id="s-showPath" data-setting="showPath"><span class="track"></span></label>
+            </div>
+          </div>
+
+          <h2 class="section-title" id="matching">Page matching</h2>
+          <div class="card">
+            <div class="row">
+              <div class="row-text">
+                <label class="row-title" for="s-ignoreQuery">Ignore the query string</label>
+                <p class="row-desc">Treat <code>/search?q=a</code> and <code>/search?q=b</code> as the same page. Common tracking parameters are always ignored.</p>
+              </div>
+              <label class="switch"><input type="checkbox" id="s-ignoreQuery" data-setting="ignoreQuery"><span class="track"></span></label>
+            </div>
+            <div class="row">
+              <div class="row-text">
+                <label class="row-title" for="s-keepFragment">Treat #fragments as separate pages</label>
+                <p class="row-desc">Useful on single page apps that route with a hash.</p>
+              </div>
+              <label class="switch"><input type="checkbox" id="s-keepFragment" data-setting="keepFragment"><span class="track"></span></label>
+            </div>
+            <div class="row">
+              <div class="row-text">
+                <label class="row-title" for="s-groupSubdomains">Group subdomains with the main domain</label>
+                <p class="row-desc">File <code>docs.example.com</code> and <code>app.example.com</code> under <code>example.com</code>. Existing notes stay where they are.</p>
+              </div>
+              <label class="switch"><input type="checkbox" id="s-groupSubdomains" data-setting="groupSubdomains"><span class="track"></span></label>
+            </div>
+          </div>
+
+          <h2 class="section-title" id="data">Data</h2>
+          <div class="card">
+            <div class="row">
+              <div class="row-text">
+                <span class="row-title">Storage</span>
+                <p class="row-desc" id="storage-summary">Reading storage</p>
+              </div>
+            </div>
+            <div class="row">
+              <div class="row-text">
+                <span class="row-title">Export</span>
+                <p class="row-desc">Download every note as a JSON file. Keep it as a backup or move it to another browser.</p>
+              </div>
+              <button class="btn" type="button" id="btn-export">Export notes</button>
+            </div>
+            <div class="row">
+              <div class="row-text">
+                <label class="row-title" for="import-file">Import</label>
+                <p class="row-desc">Load a Jotmark export. Merge keeps what you have and adds the rest. Replace removes everything first.</p>
+              </div>
+              <div class="inline-controls">
+                <select class="field field-sm" id="import-mode" aria-label="Import mode">
+                  <option value="merge">Merge</option>
+                  <option value="replace">Replace</option>
+                </select>
+                <input type="file" id="import-file" accept=".json,application/json" class="sr-only">
+                <button class="btn" type="button" id="btn-import">Choose file</button>
+              </div>
+            </div>
+            <div class="row">
+              <div class="row-text">
+                <span class="row-title">Reset settings</span>
+                <p class="row-desc">Back to the defaults. Notes are not touched.</p>
+              </div>
+              <button class="btn" type="button" id="btn-reset-settings">Reset settings</button>
+            </div>
+            <div class="row row-danger">
+              <div class="row-text">
+                <span class="row-title">Delete all notes</span>
+                <p class="row-desc" id="delete-all-desc">Removes every note on every site. This cannot be undone.</p>
+              </div>
+              <div class="inline-controls" id="delete-all-controls">
+                <button class="btn btn-danger" type="button" id="btn-delete-all">Delete all notes</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- About -->
+        <section class="view" id="view-about" hidden>
+          <div class="view-head">
+            <h1>About</h1>
+          </div>
+          <div class="card about">
+            <p><strong>Jotmark</strong> keeps timestamped notes attached to the websites you visit. Notes can belong to a whole domain or to one page.</p>
+            <p>Everything is stored locally in your browser with <code>chrome.storage.local</code>. There is no account, no server, and no analytics. The extension never reads or changes the pages you visit; it only looks at the address of the tab you open it on.</p>
+            <h2>Keyboard shortcut</h2>
+            <p>The default shortcut to open Jotmark is <kbd>Alt</kbd> <kbd>Shift</kbd> <kbd>J</kbd>. Change it at <code>chrome://extensions/shortcuts</code>.</p>
+            <h2>Links</h2>
+            <ul class="links">
+              <li><a href="https://github.com/KarmanyaIyer/jotmark" target="_blank" rel="noopener">Source code on GitHub</a></li>
+              <li><a href="https://github.com/KarmanyaIyer/jotmark/blob/main/PRIVACY.md" target="_blank" rel="noopener">Privacy policy</a></li>
+              <li><a href="https://github.com/KarmanyaIyer/jotmark/issues" target="_blank" rel="noopener">Report a problem</a></li>
+            </ul>
+            <p class="muted small">Version <span id="about-version"></span>. MIT licensed.</p>
+          </div>
+        </section>
+      </main>
+    </div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </div>
+  <script type="module" src="options.js"></script>
+</body>
+</html>

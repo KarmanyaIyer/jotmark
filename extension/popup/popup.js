@@ -1,8 +1,9 @@
 import { createStore, MAX_NOTE_LENGTH } from '../shared/storage.js';
 import { loadSettings, applyAppearance, onSettingsChange } from '../shared/settings.js';
 import { describeUrl } from '../shared/url.js';
-import { formatTimestamp, formatAbsolute, splitLinks, pluralize } from '../shared/format.js';
+import { pluralize } from '../shared/format.js';
 import { h, clear } from '../shared/dom.js';
+import { noteTextNodes, timeElement, editedBadge, sortNotes, createToast } from '../shared/note-view.js';
 
 const store = createStore();
 const isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
@@ -36,7 +37,7 @@ const state = {
   confirmingId: null,
 };
 
-let toastTimer = null;
+const toast = createToast(els.toast);
 let lastDeleted = null;
 
 init().catch((error) => {
@@ -150,16 +151,10 @@ function renderScope() {
   els.countPage.textContent = String(state.notes.page.length);
 }
 
-function sortedNotes() {
-  const list = [...currentNotes()];
-  list.sort((a, b) => (state.settings.sortOrder === 'oldest' ? a.createdAt - b.createdAt : b.createdAt - a.createdAt));
-  return list;
-}
-
 function renderNotes() {
   renderScope();
   clear(els.list);
-  const list = sortedNotes();
+  const list = sortNotes(currentNotes(), state.settings.sortOrder);
   if (list.length === 0) {
     els.empty.hidden = false;
     renderEmpty();
@@ -193,19 +188,8 @@ function renderNote(note, now) {
     return li;
   }
 
-  const text = h('div', { class: 'note-text' });
-  text.append(...renderText(note.text));
-
-  const time = h('time', {
-    class: 'note-time',
-    datetime: new Date(note.createdAt).toISOString(),
-    title: formatAbsolute(note.createdAt, state.settings.clock),
-  }, formatTimestamp(note.createdAt, state.settings, now));
-
-  const meta = h('div', { class: 'note-meta' }, time);
-  if (note.updatedAt - note.createdAt > 1000) {
-    meta.append(h('span', { class: 'note-edited', title: `Edited ${formatAbsolute(note.updatedAt, state.settings.clock)}` }, 'edited'));
-  }
+  const text = h('div', { class: 'note-text' }, ...noteTextNodes(note.text, state.settings));
+  const meta = h('div', { class: 'note-meta' }, timeElement(note, state.settings, now), editedBadge(note, state.settings));
 
   if (state.confirmingId === note.id) {
     li.classList.add('is-busy');
@@ -228,15 +212,6 @@ function renderNote(note, now) {
 
   li.append(text, meta);
   return li;
-}
-
-function renderText(text) {
-  if (!state.settings.linkify) return [text];
-  return splitLinks(text).map((part) =>
-    part.type === 'link'
-      ? h('a', { href: part.value, target: '_blank', rel: 'noopener noreferrer' }, part.value)
-      : part.value,
-  );
 }
 
 function renderEditor(note) {
@@ -369,7 +344,7 @@ async function addNote() {
     else els.notes.scrollTop = els.notes.scrollHeight;
   } catch (error) {
     console.error(error);
-    showToast('Could not save the note');
+    toast.show('Could not save the note');
   } finally {
     els.addBtn.disabled = false;
     els.input.focus();
@@ -392,7 +367,7 @@ function cancelEdit() {
 
 async function saveEdit(id, text) {
   if (!text.trim()) {
-    showToast('A note cannot be empty');
+    toast.show('A note cannot be empty');
     return;
   }
   const list = currentNotes();
@@ -407,7 +382,7 @@ async function saveEdit(id, text) {
     els.input.focus();
   } catch (error) {
     console.error(error);
-    showToast('Could not save the change');
+    toast.show('Could not save the change');
   }
 }
 
@@ -436,11 +411,11 @@ async function deleteNote(note) {
     state.confirmingId = null;
     renderNotes();
     lastDeleted = { scope, key, note };
-    showToast('Note deleted', { label: 'Undo', onClick: undoDelete });
+    toast.show('Note deleted', { label: 'Undo', onClick: undoDelete });
     els.input.focus();
   } catch (error) {
     console.error(error);
-    showToast('Could not delete the note');
+    toast.show('Could not delete the note');
   }
 }
 
@@ -448,7 +423,7 @@ async function undoDelete() {
   if (!lastDeleted) return;
   const { scope, key, note } = lastDeleted;
   lastDeleted = null;
-  hideToast();
+  toast.hide();
   try {
     const list = await store.restoreNote(scope, key, note);
     const siteKey = scope === 'domain' ? state.site.domainKey : state.site.pageKey;
@@ -458,16 +433,16 @@ async function undoDelete() {
     }
   } catch (error) {
     console.error(error);
-    showToast('Could not restore the note');
+    toast.show('Could not restore the note');
   }
 }
 
 async function copyNote(note) {
   try {
     await navigator.clipboard.writeText(note.text);
-    showToast('Copied');
+    toast.show('Copied');
   } catch {
-    showToast('Could not copy');
+    toast.show('Could not copy');
   }
 }
 
@@ -494,26 +469,4 @@ function autogrow(textarea, maxPx) {
   textarea.style.height = 'auto';
   const next = Math.min(textarea.scrollHeight + 2, maxPx);
   textarea.style.height = `${next}px`;
-}
-
-function showToast(message, action) {
-  clear(els.toast);
-  els.toast.append(message);
-  if (action) {
-    const btn = h('button', { type: 'button', class: 'toast-action' }, action.label);
-    btn.addEventListener('click', () => {
-      action.onClick();
-    });
-    els.toast.append(' ', btn);
-  }
-  els.toast.classList.add('is-visible');
-  els.toast.style.pointerEvents = action ? 'auto' : 'none';
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(hideToast, action ? 5000 : 1600);
-}
-
-function hideToast() {
-  clearTimeout(toastTimer);
-  els.toast.classList.remove('is-visible');
-  els.toast.style.pointerEvents = 'none';
 }

@@ -69,7 +69,7 @@
   }
 }
 
-/* Highlighter colours. All are light enough to carry dark ink text. */
+/* Highlighter colors. All are light enough to carry dark ink text. */
 :root[data-accent="yellow"] { --accent: #ffe34d; --accent-soft: rgba(255, 227, 77, 0.35); }
 :root[data-accent="pink"]   { --accent: #ffb3d9; --accent-soft: rgba(255, 179, 217, 0.35); }
 :root[data-accent="green"]  { --accent: #b9f26b; --accent-soft: rgba(185, 242, 107, 0.35); }
