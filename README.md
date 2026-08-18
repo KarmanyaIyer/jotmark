@@ -79,4 +79,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the ground rules and [CHANGELOG.md](C
 
 ## License
 
-MIT
+[MIT](LICENSE)

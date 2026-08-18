@@ -63,7 +63,7 @@ test('describeUrl rejects unsupported urls', () => {
   assert.equal(describeUrl('').supported, false);
   assert.equal(describeUrl('chrome://extensions').supported, false);
   assert.equal(describeUrl('chrome://extensions').reason, 'protocol');
-  assert.equal(describeUrl('file:///Users/me/a.html').supported, false);
+  assert.equal(describeUrl('file:///tmp/a.html').supported, false);
   assert.equal(describeUrl('about:blank').supported, false);
   assert.equal(describeUrl('not a url').supported, false);
 });
