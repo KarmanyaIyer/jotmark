@@ -16,7 +16,7 @@ Notes for every website. A Chrome extension that keeps timestamped notes attache
 
 ## What it does not do
 
-- It never injects scripts or styles into pages and never reads page content. The only thing it looks at is the URL of the tab you clicked it on.
+- It never reads or modifies page content. The only thing read (locally, on your device) is the URL of the tab you clicked it on, to pair notes with the correct Domain/Page.
 - It has no server, no account, and no analytics. Notes live in `chrome.storage.local` on your machine.
 - It does not run in the background. Nothing happens until you open the popup.
 
