@@ -7,7 +7,7 @@ Notes for every website. A Chrome extension that keeps timestamped notes attache
 ## What it does
 
 - Click the toolbar icon on any site and write a note. It is saved with a timestamp and is there again the next time you open Jotmark on that site.
-- Switch between domain notes (everything on `github.com`) and page notes (only `github.com/settings/keys`). The counts on the switch show where you have already written something, and Jotmark can remember which scope you last used on each site.
+- Switch between domain notes (notes available regardless of what page you're on for that domain, e.g. any link on `example.com/*`) and page notes (e.g. will only show when on `example.com/unique-web-page`). The counts on the switch show where you have already written something, and Jotmark can remember which scope you last used on each site.
 - Edit, copy, and delete notes in place. Deleting offers an undo.
 - Checklists: start a line with `[ ]` and it becomes a checkbox you can tick from the popup. Enter continues the list, `[x]` marks an item done, and notes with several items show how many are done. The state is plain text, so exports and other tools that use the same convention just work.
 - The All notes page shows everything grouped by site, with search across notes and site names.
