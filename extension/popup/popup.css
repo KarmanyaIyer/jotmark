@@ -33,21 +33,31 @@ html:not([data-ready]) body { visibility: hidden; }
   gap: 8px;
   padding: var(--pad-y) var(--pad-x) 0;
 }
-.site-text { min-width: 0; padding-top: 4px; }
+.site-text { min-width: 0; flex: 1 1 auto; padding-top: 4px; }
+/* Host and path share one line so the header height never changes and the
+   scope switch below it stays put when toggling between domain and page. */
+.site-title {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  min-width: 0;
+}
 .site-host {
   font-size: var(--fs-heading);
   font-weight: 600;
   letter-spacing: -0.01em;
-  overflow-wrap: anywhere;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  flex: 0 1 auto;
+  min-width: 0;
+  white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
+/* The path gives way long before the host does, but keeps a readable stub. */
 .site-path {
-  margin-top: 1px;
   font-size: var(--fs-small);
   font-family: var(--font-mono);
+  flex: 0 20 auto;
+  min-width: 64px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

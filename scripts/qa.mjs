@@ -183,6 +183,20 @@ try {
     equal(await count(popup, '.note'), 2);
     equal(await popup.$eval('#site-path', (el) => el.hidden), true);
   });
+  await check('switching scope does not move the scope switch or composer', async () => {
+    const tops = () => popup.evaluate(() => ({
+      scope: document.querySelector('.scope').getBoundingClientRect().top,
+      input: document.getElementById('note-input').getBoundingClientRect().top,
+    }));
+    await clickReal(popup, 'label:has(#scope-page)');
+    await sleep(80);
+    const onPage = await tops();
+    await clickReal(popup, 'label:has(#scope-domain)');
+    await sleep(80);
+    const onDomain = await tops();
+    assert(Math.abs(onPage.scope - onDomain.scope) < 0.5, `scope switch moved by ${onPage.scope - onDomain.scope}px`);
+    assert(Math.abs(onPage.input - onDomain.input) < 0.5, `composer moved by ${onPage.input - onDomain.input}px`);
+  });
   await check('remembers the last used scope for the site', async () => {
     await clickReal(popup, 'label:has(#scope-page)');
     await sleep(120);
