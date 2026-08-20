@@ -42,7 +42,7 @@ No host permissions, no content scripts, no background worker. See [PRIVACY.md](
 
 ## Install
 
-From the Chrome Web Store once the listing is live, or from source:
+From the [Chrome Web Store](https://chromewebstore.google.com/detail/jotmark-notes-for-every-w/djbdmnajkjmlbdjceelcopcipociijgk), or from source:
 
 1. Clone this repository.
 2. Open `chrome://extensions` and turn on Developer mode.
