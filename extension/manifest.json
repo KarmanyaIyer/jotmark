@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Jotmark - Notes for every website",
   "short_name": "Jotmark",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Keep timestamped notes for any website, per domain or per page. Stored locally in your browser. Never touches the pages you visit.",
   "minimum_chrome_version": "116",
   "permissions": ["activeTab", "storage"],

@@ -4,6 +4,10 @@ All notable changes to Jotmark are listed here. The format follows Keep a Change
 
 ## Unreleased
 
+## 0.1.1 (2026-08-19)
+
+- The page path now sits next to the domain on one line in the popup header, so the scope switch and composer no longer move up and down when switching between domain and page.
+
 ## 0.1.0 (2026-08-17)
 
 First release.

@@ -1,6 +1,6 @@
 {
   "name": "jotmark",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Chrome extension for keeping timestamped notes per website or per page, stored locally.",
   "type": "module",
